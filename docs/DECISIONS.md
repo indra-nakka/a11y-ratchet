@@ -2116,3 +2116,53 @@ un-prefixed, so the same `action.yml` is correct both for this repo's own
 demo workflow (`uses: ./`) and for an external consumer
 (`uses: indra-nakka/a11y-ratchet@<ref>`, where the two directories are
 genuinely different on disk).
+
+### D85. Demo PRs, a real caching bug, and exit 6 in practice
+
+Two live PRs against this repo's own demo workflow, per the task's "done
+when": [#1](https://github.com/indra-nakka/a11y-ratchet/pull/1) (a member
+photo added without `alt`) fails the gate, exit 1, confirmed from the
+Action's own logs, not just expected from the diff logic in isolation.
+[#2](https://github.com/indra-nakka/a11y-ratchet/pull/2) (a text-only
+content addition) passes, exit 0. Both linked from the README's GitHub
+Action section.
+
+The first real run of `action.yml` (against #1) failed immediately, on
+`Cache a11y-ratchet's own dependencies` - `hashFiles()` cannot read paths
+under `github.action_path`, only `$GITHUB_WORKSPACE`; the double-slash in
+`format('{0}/package-lock.json', github.action_path)` was a symptom, not
+the cause. This would have failed identically for an external consumer
+(`uses: owner/repo@ref`, where the Action's own checkout is a genuinely
+different directory from the workspace, not merely a formatting quirk of
+a local `uses: ./`). Fixed by hashing the lockfile by hand
+(`sha256sum`, `id: cache-key`) from a step that actually runs with
+`working-directory: ${{ github.action_path }}`, which has no such
+restriction - only the `hashFiles()` *expression function* is
+workspace-scoped, not shell commands. This is exactly the kind of gap a
+demo PR is supposed to catch before an external user does; caught within
+the first live run, not shipped.
+
+**Whether exit 6 can actually be triggered and recovered from in CI:**
+triggered, yes - trivially. Base and head runs need only differ in
+`mode`/viewport/locale/colour-scheme/`bypassCSP` for `diff()` to refuse
+(`types.ts`'s `RunIncompatibility`). In this Action's own shape that
+means: someone edits the `mode:` input on `action.yml`'s calling
+workflow (or a config file changes `viewport`/`colorScheme` defaults)
+without regenerating the baseline under the new settings. **Recovered
+from, yes, but not via any flag** - by design, per D83, there is no
+`allow-*` input for this the way there is for engine drift. The actual
+recovery path is: run `a11y-ratchet baseline regenerate` locally under
+the SAME settings the workflow now uses, and commit the result. The
+Action's job summary (`report/stepSummary.ts`'s fallback branch, exit
+3/4/6 case) prints this explicitly rather than leaving a bare stack
+trace, specifically because this is "the path most likely to strand a
+real user" - someone who doesn't already know the baseline is
+settings-sensitive would otherwise have no way to guess that changing
+one workflow input broke the gate outright with no override to reach
+for. The one real gap: nothing in this Action *warns* when a workflow's
+own `mode`/`config` input changes in the same PR that would trigger this
+- it is only caught when the diff actually runs and refuses. Acceptable
+for today's scope (the refusal itself is correct and loud, `01 §10`'s
+whole point), but a pre-emptive lint/warning on `action.yml` input
+changes would be a natural Day 13+ addition if this proves to strand
+people in practice.

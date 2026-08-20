@@ -11,7 +11,6 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import * as lib from '../../src/index.js';
-import { NotImplementedError } from '../../src/errors.js';
 
 const packageJson = JSON.parse(
   readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
@@ -63,27 +62,9 @@ describe('public library API', () => {
   });
 });
 
-describe('unimplemented entry points', () => {
-  // manualChecklist (Day 13) is the last stub - scan (Day 2),
-  // coverage/coverageCounts (Day 3), diff/exitCodeForDiff (Day 6),
-  // checkConfig/baseline (Day 8), exitCodeForScan (D76, pulled forward from
-  // Day 13 into Day 11 so --fail-on wouldn't ship as a silent no-op) all
-  // moved out of this list as their days landed. Not declared `async`, so
-  // the throw happens synchronously despite the Promise-typed return
-  // signature - toThrow() doesn't need an async assertion here.
-  it('throw rather than returning an empty result', () => {
-    // A scanner that reports zero violations because it did nothing is the
-    // worst possible failure mode for this tool. Stubs must be loud.
-    expect(() => lib.manualChecklist({})).toThrow(NotImplementedError);
-  });
-
-  it('carry exit code 3, so CI reads them as a tool error and not a pass', () => {
-    try {
-      void lib.manualChecklist({});
-      expect.unreachable('manualChecklist() should have thrown');
-    } catch (error) {
-      expect(error).toBeInstanceOf(NotImplementedError);
-      expect((error as NotImplementedError).exitCode).toBe(3);
-    }
-  });
-});
+// "unimplemented entry points" tracked scan (Day 2), coverage/
+// coverageCounts (Day 3), diff/exitCodeForDiff (Day 6), checkConfig/
+// baseline (Day 8), exitCodeForScan (D76) and finally manualChecklist
+// (Day 13) as each landed - the list is empty now, so the describe block
+// itself is retired rather than left checking nothing. Every entry point
+// `expects every entry point the CLI calls` above now does real work.

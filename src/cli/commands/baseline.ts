@@ -1,7 +1,18 @@
 import { Command } from 'commander';
 
-import { checkBaseline, exitCodeForDiff, readReport, regenerateBaseline, renderDiff, updateBaseline } from '../../index.js';
+import { A11yRatchetError } from '../../errors.js';
+import { checkBaseline, checkBaselineRunConfig, exitCodeForDiff, readReport, regenerateBaseline, renderDiff, updateBaseline } from '../../index.js';
+import { parseColorScheme, parseViewport } from '../parse.js';
 import { run } from '../runtime.js';
+import type { ScanMode } from '../../types.js';
+
+interface CheckRunConfigCliOptions {
+  mode: string;
+  viewport?: string;
+  locale?: string;
+  colorScheme?: string;
+  bypassCsp?: boolean;
+}
 
 /**
  * `baseline` — the committed-baseline lifecycle (`01 §11`).
@@ -61,6 +72,52 @@ export function baselineCommand(): Command {
           );
           process.exitCode = exitCode;
         }
+      }),
+    );
+
+  command
+    .command('check-run-config')
+    .description('Compare a candidate scan config against the baseline BEFORE scanning - fails fast, no browser launched')
+    .argument('<baseline>', 'baseline file')
+    .option('--mode <mode>', 'ci or audit', 'ci')
+    .option('--viewport <WxH>', 'viewport size, e.g. 1280x800 (default: the scan default, 1280x800)')
+    .option('--locale <locale>', 'browser locale (default: the scan default, en-US)')
+    .option('--color-scheme <scheme>', 'light, dark or no-preference (default: the scan default, light)')
+    .option('--bypass-csp', 'whether the candidate run ignores the page\'s own CSP (default: false)')
+    .addHelpText(
+      'after',
+      `
+Notes:
+  Same refusal diff() itself makes after a real scan (exit 6, no override -
+  mode/viewport/locale/colour-scheme/CSP differences produce phantom
+  regressions the same way engine drift does), surfaced before the scan
+  runs at all. This is a fast path, not the source of truth: diff() still
+  re-checks the real head run's config unconditionally once you have one.
+`,
+    )
+    .action((baselinePath: string, options: CheckRunConfigCliOptions) =>
+      run(async () => {
+        const baseline = await readReport(baselinePath);
+        const mismatches = checkBaselineRunConfig(baseline, {
+          mode: options.mode as ScanMode,
+          ...(options.viewport ? { viewport: parseViewport(options.viewport) } : {}),
+          ...(options.locale ? { locale: options.locale } : {}),
+          ...(options.colorScheme ? { colorScheme: parseColorScheme(options.colorScheme) } : {}),
+          ...(options.bypassCsp !== undefined ? { bypassCSP: options.bypassCsp } : {}),
+        });
+
+        if (mismatches.length === 0) {
+          console.log('Run configuration matches the baseline.');
+          return;
+        }
+
+        const detail = mismatches.map((m) => `${m.reason} (baseline=${m.base}, this run=${m.head})`).join(', ');
+        throw new A11yRatchetError(
+          `Refusing early — incompatible run configuration: ${detail}. There is no override for this. ` +
+            `Regenerate the baseline under the current settings once you have a fresh scan:\n\n` +
+            `  a11y-ratchet baseline regenerate <report.json> --baseline ${baselinePath}`,
+          6,
+        );
       }),
     );
 

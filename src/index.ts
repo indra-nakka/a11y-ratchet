@@ -15,11 +15,12 @@
 import { NotImplementedError } from './errors.js';
 import { checkBaseline as checkBaselineImpl, regenerateBaseline as regenerateBaselineImpl, updateBaseline as updateBaselineImpl } from './baseline/lifecycle.js';
 import { runCheckConfig } from './config/check.js';
-import { runDiff } from './diff/run.js';
+import { checkBaselineRunConfig as checkBaselineRunConfigImpl, runDiff } from './diff/run.js';
 import { renderDiffSummary } from './report/diffSummary.js';
 import { renderReportHtml } from './report/html/render.js';
 import { renderDiffHtml } from './report/html/renderDiff.js';
 import { readReport as readReportFromDisk, toStableJson, writeReport as writeReportToDisk } from './report/json.js';
+import { renderManualChecklist as renderManualChecklistImpl } from './report/manualChecklist.js';
 import { renderDiffStepSummary as renderDiffStepSummaryImpl } from './report/stepSummary.js';
 import { renderSummary } from './report/summary.js';
 import { runScan } from './scan/run.js';
@@ -35,6 +36,7 @@ import type {
   ManualOptions,
   Report,
   ReportOptions,
+  RunIncompatibility,
   ScanOptions,
 } from './types.js';
 
@@ -86,6 +88,24 @@ export function scan(options: ScanOptions): Promise<Report> {
  */
 export function diff(base: Report, head: Report, options?: DiffOptions): DiffResult {
   return runDiff(base, head, options ?? {});
+}
+
+/**
+ * Compare a committed baseline's run config against the config a scan is
+ * about to use, before that scan runs (`01 §11`, Day 13) — the same check
+ * `diff()` performs unconditionally after a real head scan (exit 6, no
+ * override), surfaced early so CI can fail in seconds instead of after a
+ * multi-minute crawl. Omitted `candidate` fields default to this
+ * project's own CLI defaults, matching what a bare `scan()` call actually
+ * resolves to. Best-effort: a `--config` file overriding a default this
+ * candidate didn't know about is still caught correctly by `diff()`
+ * itself afterward, just later.
+ */
+export function checkBaselineRunConfig(
+  baseline: Report,
+  candidate: Parameters<typeof checkBaselineRunConfigImpl>[1],
+): RunIncompatibility[] {
+  return checkBaselineRunConfigImpl(baseline, candidate);
 }
 
 /**
@@ -281,11 +301,12 @@ export function coverageCounts(levels?: Level[]): CoverageCounts {
 }
 
 /**
- * Generate the manual-testing checklist for criteria the tool cannot evaluate,
- * plus routing for anything bucketed `needs-review`.
- *
- * Day 13.
+ * Generate the manual-testing checklist for criteria the tool cannot evaluate
+ * (`wcag/coverage.ts`'s `manualChecks`, unfiltered by page — page-context
+ * derivation is cut, `00 §7` cut line 2), plus, when `report` is supplied,
+ * that run's own needs-review findings and probe-blind regions routed in
+ * per page. `options.criteria` restricts both layers to the given SC ids.
  */
-export function manualChecklist(_options: ManualOptions, _report?: Report): Promise<string> {
-  throw new NotImplementedError('manualChecklist()', 'Day 13');
+export function manualChecklist(options: ManualOptions, report?: Report): Promise<string> {
+  return Promise.resolve(renderManualChecklistImpl(options, report));
 }

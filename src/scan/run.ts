@@ -13,7 +13,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import type { BrowserContext, Page } from 'playwright';
 
-import { injectAxeIntoAllFrames, runAxe } from './axe.js';
+import { AxeInjectionFailedError, injectAxeIntoAllFrames, runAxe } from './axe.js';
 import {
   BrowserPool,
   DEFAULT_COLOR_SCHEME,
@@ -324,8 +324,18 @@ async function readUrlListFile(path: string): Promise<string[]> {
 const TIMEOUT_MESSAGE = /timeout/i;
 
 function classifyNavigationError(error: unknown): PageErrorKind {
+  if (error instanceof AxeInjectionFailedError) return 'axe-injection-failed';
   const message = error instanceof Error ? error.message : String(error);
   return TIMEOUT_MESSAGE.test(message) ? 'navigation-timeout' : 'navigation-failed';
+}
+
+/** `axe-injection-failed` gets a pointer to the fix; every other kind keeps the raw Playwright/axe message. */
+function pageErrorMessage(kind: PageErrorKind, error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  if (kind === 'axe-injection-failed') {
+    return `${raw}\n\nIf this page's Content-Security-Policy blocks inline scripts, pass --bypass-csp to scan anyway (it ignores the page's own CSP, so the report is recorded with bypassCSP: true and refuses to diff against a run that didn't use it).`;
+  }
+  return raw;
 }
 
 async function scanOnePage(
@@ -380,6 +390,7 @@ async function scanOnePage(
   } catch (error) {
     // A page that failed to load is recorded as an error, not silently
     // skipped or reported as a zero-violation page (`CLAUDE.md` invariant 2).
+    const kind = classifyNavigationError(error);
     const pageResult: PageResult = {
       url,
       urlTemplate,
@@ -391,8 +402,8 @@ async function scanOnePage(
       counts: { violation: 0, needsReview: 0, bestPractice: 0, suppressed: 0 },
       settleDegraded: false,
       error: {
-        kind: classifyNavigationError(error),
-        message: error instanceof Error ? error.message : String(error),
+        kind,
+        message: pageErrorMessage(kind, error),
       },
     };
     return { page: pageResult, findings: [] };

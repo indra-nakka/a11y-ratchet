@@ -19,9 +19,13 @@ describe('WCAG_COVERAGE', () => {
     expect(experimental.sort()).toEqual(['1.3.4', '2.5.3']);
   });
 
-  it('every entry has at least one manual check stub', () => {
+  it('every entry has at least one manual check with a real, imperative prompt - no placeholder left behind', () => {
     for (const entry of WCAG_COVERAGE) {
       expect(entry.manualChecks.length, entry.criterion).toBeGreaterThan(0);
+      for (const check of entry.manualChecks) {
+        expect(check.prompt, `${entry.criterion} (${check.id})`).not.toMatch(/TODO/i);
+        expect(check.prompt.length, `${entry.criterion} (${check.id})`).toBeGreaterThan(20);
+      }
     }
   });
 
