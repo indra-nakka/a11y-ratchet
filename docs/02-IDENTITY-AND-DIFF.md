@@ -75,11 +75,17 @@ Config-extensible via `identity.ignoredIdPatterns`. You will not guess every fra
 
 ```
 collapse whitespace · trim · lowercase · strip zero-width and directional marks
-mask digit runs of length >= 2   ->  "#"
+mask every embedded digit run    ->  "#"
 mask ISO dates/times             ->  "#date"
 mask currency amounts            ->  "#money"
 truncate to 80 chars
 ```
+
+**Corrected during Day 5's golden pairs (`DECISIONS.md` D33):** the original text said
+"digit runs of length >= 2," leaving single-digit counts unmasked. Golden case 5 ("3
+results" → "17 results" must be `persisting`) shows that's wrong — a one-digit count is
+exactly as common as a two-digit one, and the worked example below already masks both
+regardless of length. Every embedded digit run masks now, no length threshold.
 
 **Exception, added after review:** if the normalised string consists *entirely* of digits
 and punctuation, do **not** mask it. Otherwise a pagination bar labelled "10 11 12 13 14"
@@ -231,7 +237,6 @@ Table-driven, built **before** the matcher.
 4. Change a React `useId` (`:r1:` → `:r7:`)
 5. Change "3 results" to "17 results"
 6. Reorder two unrelated page sections
-7. `<div role="button">` → `<button>`, same defect
 8. Page moves `/product/1` → `/product/2`
 9. Whitespace-only reflow of the document
 10. **Add an unrelated new violation elsewhere on the page**
@@ -243,7 +248,20 @@ button, different accessible name, same landmark · 15. passing image loses its 
 
 **Must be `fixed`:** 16. label added · 17. element removed
 
-**Must be `moved`:** 18. same control relocated `<footer>` → `<header>`
+**Must be `moved`:**
+
+18. same control relocated `<footer>` → `<header>`
+7. **Corrected during Day 5/6 (`DECISIONS.md` D35, D42):** `<div role="button">` →
+   `<button>`, same defect. Originally listed under "must be `persisting`," but axe-core
+   genuinely reports this pair under two different rule ids (`aria-command-name` vs
+   `button-name`), and `ruleId` is a fingerprint input by design (`§3.5`) — no amount of
+   identity-layer cleverness makes two different rules hash the same without breaking the
+   far more important guarantee that distinct rules on one element stay distinct. Moved
+   here: pass 2's `ruleEquivalence` table (`wcag/ruleMap.ts`, Day 6) treats
+   `aria-command-name`/`button-name` as equivalent for fuzzy-match candidacy, so the
+   matcher classifies it `moved` — same element (`identity.value` unchanged), different
+   rule label. Not `persisting`; the rule genuinely changed. Not `new`+`fixed` either,
+   which would hide that it's the same defect.
 
 **Must be `impact-changed`:** 19. contrast 4.4:1 → 2.1:1 on the same element
 

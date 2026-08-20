@@ -63,3 +63,39 @@ function compareCriterionIds(a: string, b: string): number {
   }
   return 0;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Rule equivalence (Day 6, `diff/match.ts`)                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Rule ids axe-core reports as genuinely different rules but which express
+ * the same underlying defect on structurally equivalent elements. Found via
+ * golden case 7 (`DECISIONS.md` D35): `<div role="button">` with no name and
+ * a native `<button>` with no name fire `aria-command-name` and `button-name`
+ * respectively — same defect, different rule id, because `ruleId` is a
+ * fingerprint input and correctly can't unify them at the identity layer.
+ *
+ * Pass 2 (`diff/match.ts`) treats two findings as fuzzy-match CANDIDATES when
+ * their rule ids are equivalent, not just when they're identical — this is
+ * what turns case 7 from `new` + `fixed` into `moved` (`02 §9`).
+ */
+const RULE_EQUIVALENCE_CLASSES: readonly (readonly string[])[] = [
+  // ARIA-role-emulated control vs its native HTML equivalent, both "no accessible name".
+  ['button-name', 'aria-command-name'],
+  // Same defect (non-text content with no text alternative), different element shape.
+  ['image-alt', 'role-img-alt', 'svg-img-alt'],
+];
+
+const RULE_EQUIVALENCE_CLASS_BY_RULE = new Map<string, number>();
+RULE_EQUIVALENCE_CLASSES.forEach((ruleClass, index) => {
+  for (const ruleId of ruleClass) RULE_EQUIVALENCE_CLASS_BY_RULE.set(ruleId, index);
+});
+
+/** True for the same rule id, or for two rule ids in the same equivalence class. */
+export function areRulesEquivalent(a: string, b: string): boolean {
+  if (a === b) return true;
+  const classA = RULE_EQUIVALENCE_CLASS_BY_RULE.get(a);
+  const classB = RULE_EQUIVALENCE_CLASS_BY_RULE.get(b);
+  return classA !== undefined && classA === classB;
+}

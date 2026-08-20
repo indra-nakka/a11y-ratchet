@@ -13,6 +13,9 @@
  */
 
 import { NotImplementedError } from './errors.js';
+import { runDiff } from './diff/run.js';
+import { renderDiffSummary } from './report/diffSummary.js';
+import { readReport as readReportFromDisk, writeReport as writeReportToDisk } from './report/json.js';
 import { renderSummary } from './report/summary.js';
 import { runScan } from './scan/run.js';
 import { computeCoverageCounts, WCAG_COVERAGE } from './wcag/coverage.js';
@@ -70,26 +73,26 @@ export function scan(options: ScanOptions): Promise<Report> {
 /**
  * Diff two reports.
  *
- * Refuses mismatched scan modes, and refuses differing axe-core versions unless
- * `allowEngineDrift` is set. When identity is uncertain, findings are
- * classified `unclassified` or `moved` — never `new`.
- *
- * Days 4–6.
+ * Refuses mismatched scan modes and other incompatible run configuration
+ * (`incompatibleRunConfig`, exit 6, no override), and refuses differing
+ * axe-core versions (exit 4) unless `allowEngineDrift` is set. When
+ * identity is uncertain, findings are classified `unclassified` or `moved`
+ * — never `new`.
  */
-export function diff(_base: Report, _head: Report, _options?: DiffOptions): DiffResult {
-  throw new NotImplementedError('diff()', 'Days 4–6');
+export function diff(base: Report, head: Report, options?: DiffOptions): DiffResult {
+  return runDiff(base, head, options ?? {});
 }
 
 /**
  * Map a diff result to a process exit code (`01 §10`).
  *
  * Lives in the library, not the CLI, so the GitHub Action and any programmatic
- * consumer agree with the binary about what the codes mean.
- *
- * Day 6.
+ * consumer agree with the binary about what the codes mean. Only ever 0 or 1
+ * — `diff()` itself throws for exit codes 4 and 6 (engine drift, incompatible
+ * run config), since those refuse to produce a `DiffResult` at all.
  */
-export function exitCodeForDiff(_result: DiffResult): ExitCode {
-  throw new NotImplementedError('exitCodeForDiff()', 'Day 6');
+export function exitCodeForDiff(result: DiffResult): ExitCode {
+  return result.gate.passed ? 0 : 1;
 }
 
 /**
@@ -123,20 +126,24 @@ export function renderReport(report: Report, options: ReportOptions): Promise<st
 /**
  * Render a diff as HTML, JSON, or a terminal summary.
  *
- * Day 10.
+ * `format: 'summary'` as of Day 6 (`report/diffSummary.ts`); the CI
+ * job-summary markdown and `'html'` are Day 12 and Day 10 respectively.
  */
-export function renderDiff(_result: DiffResult, _options: ReportOptions): Promise<string> {
-  throw new NotImplementedError('renderDiff()', 'Day 10');
+export function renderDiff(result: DiffResult, options: ReportOptions): Promise<string> {
+  if (options.format === 'summary') {
+    return Promise.resolve(renderDiffSummary(result));
+  }
+  throw new NotImplementedError(`renderDiff() format "${options.format}"`, 'Days 10 and 12');
 }
 
-/** Read a report or baseline from disk, validating its `schemaVersion`. Day 2. */
-export function readReport(_path: string): Promise<Report> {
-  throw new NotImplementedError('readReport()', 'Day 2');
+/** Read a report or baseline from disk, validating its `schemaVersion`. */
+export function readReport(path: string): Promise<Report> {
+  return readReportFromDisk(path);
 }
 
-/** Write a report to disk with stable key ordering, so baselines diff cleanly. Day 2. */
-export function writeReport(_report: Report, _path: string): Promise<void> {
-  throw new NotImplementedError('writeReport()', 'Day 2');
+/** Write a report to disk with stable key ordering, so baselines diff cleanly. */
+export function writeReport(report: Report, path: string): Promise<void> {
+  return writeReportToDisk(report, path);
 }
 
 /* -------------------------------------------------------------------------- */

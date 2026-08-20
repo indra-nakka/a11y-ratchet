@@ -26,7 +26,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer, type Server } from 'node:http';
 
-import { scan } from '../../src/index.js';
+import { diff, scan } from '../../src/index.js';
 import type { Finding, Report } from '../../src/types.js';
 
 const BEFORE_PORT = 4180;
@@ -191,10 +191,27 @@ pair(
 /* Must be `moved` (18)                                                       */
 /* -------------------------------------------------------------------------- */
 
+// Named (aria-label), not icon-only: an unlabelled control makes this
+// unwinnable for pass 2 regardless of tuning (DECISIONS.md D49) - name and
+// context are 0.60 of the weight table between them, and a relocation
+// definitionally changes context, so an element with no name signal at all
+// has at best url+depth (~0.15-0.20) to work with, nowhere near 0.65. A
+// named control is also the representative case: Tier 3 (accessible name)
+// is the dominant real-site identity tier (D41/D44), so this is what most
+// real relocations actually look like.
 pair(
   '/18-moved-footer-to-header/',
-  `<header><nav aria-label="Primary"></nav></header><main id="m"><h1>Report</h1></main><footer><button id="contact-btn">${ICON}</button></footer>`,
-  `<header><nav aria-label="Primary"></nav><button id="contact-btn">${ICON}</button></header><main id="m"><h1>Report</h1></main><footer></footer>`,
+  `<header><nav aria-label="Primary"></nav></header><main id="m"><h1>Report</h1></main><footer><button id="contact-btn" style="color:#949494;background:#ffffff">Contact us</button></footer>`,
+  `<header><nav aria-label="Primary"></nav><button id="contact-btn" style="color:#949494;background:#ffffff">Contact us</button></header><main id="m"><h1>Report</h1></main><footer></footer>`,
+);
+
+// The variant D49 describes: same relocation, but icon-only (no accessible
+// name). Kept as its own case specifically to demonstrate the limitation
+// rather than let it stay a claim - not part of the doc's numbered 20.
+pair(
+  '/18b-moved-unlabelled/',
+  `<header><nav aria-label="Primary"></nav></header><main id="m"><h1>Report</h1></main><footer><button id="contact-btn-2">${ICON}</button></footer>`,
+  `<header><nav aria-label="Primary"></nav><button id="contact-btn-2">${ICON}</button></header><main id="m"><h1>Report</h1></main><footer></footer>`,
 );
 
 /* -------------------------------------------------------------------------- */
@@ -212,8 +229,15 @@ pair(
 /* -------------------------------------------------------------------------- */
 
 function paginationLinks(numbers: number[]): string {
+  // Padded to a 24x24 target so only color-contrast fires - target-size
+  // would otherwise also trigger on an unpadded 1-2 character link,
+  // doubling the finding count per side and complicating what this case is
+  // actually testing (found by running this test, not planned for).
   return numbers
-    .map((n) => `<a href="#page-${n}" style="color:#dddddd;background:#ffffff">${n}</a>`)
+    .map(
+      (n) =>
+        `<a href="#page-${n}" style="display:inline-block;min-width:24px;min-height:24px;padding:4px;text-align:center;color:#dddddd;background:#ffffff">${n}</a>`,
+    )
     .join('');
 }
 
@@ -275,6 +299,27 @@ function fingerprints(findings: Finding[]): string[] {
   return findings.map((f) => f.fingerprint);
 }
 
+/**
+ * `diff()` pairs pages by exact URL (`02 §7`) — correct for a real
+ * baseline/head comparison, where both runs hit the same origin. This
+ * harness serves before/after from two different ports so `urlTemplateFor`
+ * (origin-independent by design) can be exercised for case 8, but that
+ * means every OTHER case's before/after URLs differ only in origin, not
+ * path - diffed as-is, they'd show up as unknown-page-removed +
+ * unknown-page-added instead of an in-page diff. Rewriting the after
+ * report's origin to match before's is what a real same-site comparison
+ * would see; case 8 (`02 §9`) is deliberately NOT run through this - see
+ * its own test below for why.
+ */
+function diffPair(before: Report, after: Report): ReturnType<typeof diff> {
+  const rewritten: Report = {
+    ...after,
+    pages: after.pages.map((p) => ({ ...p, url: p.url.replace(AFTER_ORIGIN, BEFORE_ORIGIN) })),
+    findings: after.findings.map((f) => ({ ...f, url: f.url.replace(AFTER_ORIGIN, BEFORE_ORIGIN) })),
+  };
+  return diff(before, rewritten);
+}
+
 /* -------------------------------------------------------------------------- */
 /* Cases 1-12: persisting, zero tolerance                                     */
 /* -------------------------------------------------------------------------- */
@@ -283,6 +328,13 @@ describe('golden pairs: must be persisting (zero tolerance)', () => {
   it('1. wrapping the element in a div', async () => {
     const { before, after } = await scanPair('/01-wrapper/');
     expect(fingerprints(byRule(after, 'image-alt'))).toEqual(fingerprints(byRule(before, 'image-alt')));
+
+    // Full diff() pipeline, not just identity: this is the actual acceptance test.
+    const result = diffPair(before, after);
+    expect(result.findings.persisting).toHaveLength(1);
+    expect(result.findings.new).toHaveLength(0);
+    expect(result.findings.fixed).toHaveLength(0);
+    expect(result.gate.passed).toBe(true);
   }, 30_000);
 
   it('2. three unrelated siblings added before it', async () => {
@@ -316,35 +368,60 @@ describe('golden pairs: must be persisting (zero tolerance)', () => {
     expect(fingerprints(byRule(after, 'image-alt'))).toEqual(fingerprints(byRule(before, 'image-alt')));
   }, 30_000);
 
-  it('7. div[role=button] becomes a native button, same defect - a real limitation, not a pass (DECISIONS.md D35)', async () => {
+  it('7. div[role=button] becomes a native button, same defect - moved via ruleEquivalence, not persisting (DECISIONS.md D35/D42/D45)', async () => {
     const { before, after } = await scanPair('/07-role-to-native/');
-    // Run first, assumed nothing: axe-core 4.13.0 uses a DIFFERENT rule for
-    // an unnamed ARIA-role control (aria-command-name) than for an unnamed
-    // native one (button-name). ruleId is a fingerprint input by design
-    // (02 §3.5) - correctly, changing the rule a defect is reported under
-    // IS an identity change, not noise. This means the doc's case 7, taken
-    // literally, cannot be satisfied at the fingerprint layer: no amount of
-    // identity-layer cleverness makes two different ruleIds hash the same
-    // without breaking the far more important guarantee that different
-    // rules on the same element stay distinct.
+    // axe-core 4.13.0 uses a DIFFERENT rule for an unnamed ARIA-role control
+    // (aria-command-name) than for an unnamed native one (button-name).
+    // ruleId is a fingerprint input by design (02 §3.5), so this cannot be
+    // `persisting` at the fingerprint layer - moved from the "must be
+    // persisting" list to "must be moved" in the design doc itself (D42).
     const beforeFinding = before.findings[0];
     const afterFinding = after.findings[0];
     expect(beforeFinding?.ruleId).toBe('aria-command-name');
     expect(afterFinding?.ruleId).toBe('button-name');
     expect(afterFinding?.fingerprint).not.toBe(beforeFinding?.fingerprint);
-
-    // What Day 6's matcher would need to bridge this, and currently can't:
-    // §6 restricts fuzzy-match candidates to pairs sharing ruleId AND
-    // source. A role -> native migration produces a pair sharing neither
-    // ruleId's exact string nor an obvious equivalence table axe exposes.
-    // The identity VALUE still survives, for what it's worth:
     expect(afterFinding?.identity.value).toBe(beforeFinding?.identity.value);
+
+    // Day 6's matcher bridges this via wcag/ruleMap.ts's ruleEquivalence
+    // table: pass 2 treats aria-command-name/button-name as candidates for
+    // each other, and since everything else about the element matches,
+    // classify.ts calls it moved (case 7's fingerprint family genuinely
+    // changed - via the rule, not a relocation, but §9's classification set
+    // has no third option for that).
+    const result = diffPair(before, after);
+    expect(result.findings.moved).toHaveLength(1);
+    expect(result.findings.new).toHaveLength(0);
+    expect(result.findings.fixed).toHaveLength(0);
+    expect(result.gate.passed).toBe(true);
   }, 30_000);
 
-  it('8. the page moves /product/1 -> /product/2', async () => {
+  it('8. the page moves /product/1 -> /product/2 - persisting at the identity layer; a real limit of exact-URL page partitioning (DECISIONS.md D46)', async () => {
     const { before, after } = await scanPair('/product/1/', '/product/2/');
     expect(before.pages[0]?.urlTemplate).toBe(after.pages[0]?.urlTemplate);
     expect(fingerprints(byRule(after, 'image-alt'))).toEqual(fingerprints(byRule(before, 'image-alt')));
+
+    // Deliberately NOT run through diffPair()'s origin rewrite: this case
+    // is specifically about the URL differing, and diffPair only
+    // normalises ORIGIN, not path. Diffed as two genuinely different URLs
+    // (matching what a real crawl of a real site would see):
+    const result = diff(before, after);
+    // §7 partitions pages by exact URL, not urlTemplate - urlTemplate is a
+    // fingerprint input for within-page identity, not a page-matching key.
+    // A URL that changes between runs is therefore, correctly, "one page
+    // removed and a different page added" from the crawler's point of
+    // view - NOT a within-page diff, and so NOT `persisting` at the full
+    // diff() level, even though identity itself is stable (asserted
+    // above). This is a real, load-bearing limit of exact-URL matching,
+    // not a bug: §7 never mentions urlTemplate-based page matching, and
+    // guessing that two different URLs are "the same page" would be
+    // exactly the kind of confident-but-wrong inference invariant #4 rules
+    // out.
+    expect(result.pages.onlyInBase).toEqual([before.pages[0]!.url]);
+    expect(result.pages.onlyInHead).toEqual([after.pages[0]!.url]);
+    expect(result.findings.persisting).toHaveLength(0);
+    expect(result.findings.fixed).toHaveLength(0); // NOT fixed (§7's explicit guard)
+    expect(result.findings.new).toHaveLength(0); // NOT new either
+    expect(result.findings.unknown.map((u) => u.reason).sort()).toEqual(['page-added', 'page-removed']);
   }, 30_000);
 
   it('9. whitespace-only reflow of the document', async () => {
@@ -358,6 +435,15 @@ describe('golden pairs: must be persisting (zero tolerance)', () => {
     const afterChart = byRule(after, 'image-alt')[0];
     expect(afterChart?.fingerprint, "the existing finding's identity must not shift").toBe(beforeChart?.fingerprint);
     expect(byRule(after, 'button-name').length, 'the new unrelated violation should also be present').toBe(1);
+
+    // Full pipeline: the pre-existing defect must classify as persisting
+    // (not new+fixed), and ONLY the genuinely new one gates.
+    const result = diffPair(before, after);
+    expect(result.findings.persisting).toHaveLength(1);
+    expect(result.findings.new).toHaveLength(1);
+    expect(result.findings.new[0]!.ruleId).toBe('button-name');
+    expect(result.findings.fixed).toHaveLength(0);
+    expect(result.gate.passed).toBe(false);
   }, 30_000);
 
   it('11. the element moves into an open shadow root', async () => {
@@ -385,6 +471,11 @@ describe('golden pairs: must be new', () => {
     const afterFps = fingerprints(byRule(after, 'button-name'));
     expect(afterFps.length).toBe(beforeFps.size + 1);
     expect(afterFps.some((fp) => !beforeFps.has(fp)), 'expected at least one genuinely new fingerprint').toBe(true);
+
+    const result = diffPair(before, after);
+    expect(result.findings.new).toHaveLength(1);
+    expect(result.findings.persisting).toHaveLength(1);
+    expect(result.gate.passed).toBe(false);
   }, 30_000);
 
   it('14. a second unlabelled button appears in the same landmark, distinguishable by position', async () => {
@@ -394,12 +485,21 @@ describe('golden pairs: must be new', () => {
     expect(afterFps.length).toBe(beforeFps.size + 1);
     const newOnes = afterFps.filter((fp) => !beforeFps.has(fp));
     expect(newOnes.length, 'the new button must not collide with the existing one').toBe(1);
+
+    const result = diffPair(before, after);
+    expect(result.findings.new).toHaveLength(1);
+    expect(result.findings.persisting).toHaveLength(1);
+    expect(result.gate.passed).toBe(false);
   }, 30_000);
 
   it('15. a passing image loses its alt', async () => {
     const { before, after } = await scanPair('/15-passing-loses-alt/');
     expect(byRule(before, 'image-alt')).toHaveLength(0);
     expect(byRule(after, 'image-alt')).toHaveLength(1);
+
+    const result = diffPair(before, after);
+    expect(result.findings.new).toHaveLength(1);
+    expect(result.gate.passed).toBe(false);
   }, 30_000);
 });
 
@@ -412,12 +512,22 @@ describe('golden pairs: must be fixed', () => {
     const { before, after } = await scanPair('/16-label-added/');
     expect(byRule(before, 'image-alt')).toHaveLength(1);
     expect(byRule(after, 'image-alt')).toHaveLength(0);
+
+    const result = diffPair(before, after);
+    expect(result.findings.fixed).toHaveLength(1);
+    expect(result.findings.new).toHaveLength(0);
+    expect(result.gate.passed).toBe(true);
   }, 30_000);
 
   it('17. the element is removed', async () => {
     const { before, after } = await scanPair('/17-element-removed/');
     expect(byRule(before, 'image-alt')).toHaveLength(1);
     expect(byRule(after, 'image-alt')).toHaveLength(0);
+
+    const result = diffPair(before, after);
+    expect(result.findings.fixed).toHaveLength(1);
+    expect(result.findings.new).toHaveLength(0);
+    expect(result.gate.passed).toBe(true);
   }, 30_000);
 });
 
@@ -426,12 +536,12 @@ describe('golden pairs: must be fixed', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('golden pairs: must be moved', () => {
-  it('18. the same control relocates footer -> header (no matcher yet, so this verifies what Day 6 will need)', async () => {
+  it('18. the same control relocates footer -> header', async () => {
     const { before, after } = await scanPair('/18-moved-footer-to-header/');
-    const beforeFinding = byRule(before, 'button-name')[0];
-    const afterFinding = byRule(after, 'button-name')[0];
-    expect(beforeFinding, 'expected the button-name finding before').toBeDefined();
-    expect(afterFinding, 'expected the button-name finding after').toBeDefined();
+    const beforeFinding = byRule(before, 'color-contrast')[0];
+    const afterFinding = byRule(after, 'color-contrast')[0];
+    expect(beforeFinding, 'expected the color-contrast finding before').toBeDefined();
+    expect(afterFinding, 'expected the color-contrast finding after').toBeDefined();
 
     // What actually changed: landmark context (contentinfo -> banner), so
     // both fingerprint AND groupKey differ - groupKey includes landmarkRole
@@ -442,10 +552,45 @@ describe('golden pairs: must be moved', () => {
     expect(beforeFinding?.identity.context.nearestLandmark).toBe('contentinfo');
     expect(afterFinding?.identity.context.nearestLandmark).toBe('banner');
 
-    // What Day 6's matcher will have to use instead: identity.value survives
-    // the move untouched (Tier 1, id-based) even though nothing else does.
+    // identity.value survives the move untouched (Tier 1, id-based) - but
+    // §6's 5 fuzzy signals do NOT include "identity.value equality" at all
+    // (DECISIONS.md D49), so this stability isn't what makes the match
+    // below succeed. The accessible name ("Contact us", from the button's
+    // own text) is what does - see the 18b test for what happens without it.
     expect(afterFinding?.identity.value).toBe(beforeFinding?.identity.value);
     expect(afterFinding?.identityTier).toBe(beforeFinding?.identityTier);
+
+    const result = diffPair(before, after);
+    expect(result.findings.moved).toHaveLength(1);
+    expect(result.findings.new).toHaveLength(0);
+    expect(result.findings.fixed).toHaveLength(0);
+    expect(result.gate.passed).toBe(true); // moved never gates (§8)
+  }, 30_000);
+
+  it('18b. the same relocation, but icon-only (no accessible name) - degrades to new+fixed, not moved (DECISIONS.md D49)', async () => {
+    const { before, after } = await scanPair('/18b-moved-unlabelled/');
+    const beforeFinding = byRule(before, 'button-name')[0];
+    const afterFinding = byRule(after, 'button-name')[0];
+    expect(beforeFinding, 'expected the button-name finding before').toBeDefined();
+    expect(afterFinding, 'expected the button-name finding after').toBeDefined();
+    // Identity is still stable (same id, filtered or not) - just like case 18.
+    expect(afterFinding?.identity.value).toBe(beforeFinding?.identity.value);
+
+    // But §6's weight table can't use that: accessible name (0.35) and
+    // context (0.25) are 0.60 of the total between them, a relocation
+    // definitionally changes context, and an icon-only control has no name
+    // signal either. What's left - urlTemplate (0.10) + DOM depth
+    // (up to 0.10) - tops out around 0.20, nowhere near the 0.65
+    // threshold. This is a real, structural limit of the current signal
+    // set for unlabelled relocated elements, not a tuning problem: no
+    // threshold value both accepts this pair and continues rejecting
+    // genuinely unrelated ones.
+    const result = diffPair(before, after);
+    expect(result.findings.moved).toHaveLength(0);
+    expect(result.findings.new).toHaveLength(1);
+    expect(result.findings.fixed).toHaveLength(1);
+    // Still safe - no false persisting claim, just less information (§6).
+    expect(result.findings.persisting).toHaveLength(0);
   }, 30_000);
 });
 
@@ -454,17 +599,33 @@ describe('golden pairs: must be moved', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('golden pairs: must be impact-changed', () => {
-  it('19. contrast worsens on the same element (impact is excluded from the fingerprint by design, 02 §3.5)', async () => {
+  it('19. contrast worsens on the same element - fingerprint stable; classifies as persisting, NOT impact-changed, against real axe-core 4.13.0 (DECISIONS.md D47)', async () => {
     const { before, after } = await scanPair('/19-impact-changed/');
     const beforeFinding = byRule(before, 'color-contrast')[0];
     const afterFinding = byRule(after, 'color-contrast')[0];
     expect(beforeFinding, 'expected a color-contrast violation before').toBeDefined();
     expect(afterFinding, 'expected a color-contrast violation after').toBeDefined();
     expect(afterFinding?.fingerprint, 'identity must be stable regardless of impact').toBe(beforeFinding?.fingerprint);
-    // Whether axe's reported impact actually differs between these two
-    // ratios is reported, not assumed - see DECISIONS.md for what this run
-    // found. Either way, fingerprint stability is the property this case
-    // exists to protect, and it's asserted above unconditionally.
+
+    // Checked, not assumed: axe-core 4.13.0's color-contrast (and
+    // target-size) report a FIXED impact per rule/check - 'serious'
+    // regardless of how far below the ratio threshold the actual colours
+    // are. Confirmed against 2.85:1 vs a much worse ratio on the same
+    // markup shape used here; axe simply doesn't grade contrast severity
+    // that way. So this specific real-world construction ("same element,
+    // same rule, worse ratio") does NOT produce a different impact, and
+    // correctly classifies persisting, not impact-changed:
+    expect(beforeFinding?.impact).toBe(afterFinding?.impact);
+    const result = diffPair(before, after);
+    expect(result.findings.persisting).toHaveLength(1);
+    expect(result.findings.impactChanged).toHaveLength(0);
+    // The impact-changed CLASSIFICATION itself is real and correctly
+    // implemented - verified directly against constructed Finding pairs in
+    // test/diff/classify.test.ts, since axe-core doesn't hand us a natural
+    // instance of it to scan. Impact genuinely can differ between runs
+    // in principle (an axe rule-config change, a probe's own impact
+    // assignment) even though this particular golden scenario doesn't
+    // exercise it.
   }, 30_000);
 });
 
@@ -486,5 +647,25 @@ describe('golden pairs: must pair 1-to-1 (not collapse)', () => {
     expect(new Set(fingerprints(afterFindings)).size, 'the 5 after findings must stay distinct').toBe(5);
     expect(beforeFindings.map((f) => f.identity.value).sort()).toEqual(['10', '11', '12', '13', '14']);
     expect(afterFindings.map((f) => f.identity.value).sort()).toEqual(['20', '21', '22', '23', '24']);
+
+    // Full diff() pipeline - reported honestly, not forced to match the
+    // doc's "1-to-1 pairing" aspiration (DECISIONS.md D48). The masking
+    // exception keeps all 10 identity values distinct (asserted above),
+    // which is what protects against a false COLLAPSE - but "10" and "20"
+    // are still literally different accessible-name values, so pass 2's
+    // highest-weighted signal (0.35) contributes nothing for any pair.
+    // Landmark+heading context (0.25) and urlTemplate (0.10) still match
+    // for every candidate, and DOM depth is close, so the remaining ~0.45
+    // does not clear the 0.65 default threshold: this degrades to 5 new +
+    // 5 fixed, not moved. Safe (§6: "less information, not false
+    // regressions"), not the 1-to-1 pairing the doc aspires to - the
+    // threshold would have to drop low enough to risk exactly the kind of
+    // false match `§6` warns against for this to pair instead.
+    const result = diffPair(before, after);
+    expect(result.findings.new).toHaveLength(5);
+    expect(result.findings.fixed).toHaveLength(5);
+    expect(result.findings.moved).toHaveLength(0);
+    // The property that must hold regardless: no false persisting claim.
+    expect(result.findings.persisting).toHaveLength(0);
   }, 30_000);
 });
