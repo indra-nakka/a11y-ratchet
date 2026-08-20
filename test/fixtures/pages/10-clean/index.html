@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Clean page — a11y-ratchet fixtures</title>
+
+    <!--
+      THE MOST IMPORTANT PAGE IN THE SUITE (03-EVIDENCE.md §2.4).
+
+      This page must produce ZERO findings: no violations, no needs-review, no
+      best-practice findings, and nothing from the interaction probes. Every
+      scanner has false positives; the ones that survive are the ones with a
+      clean-page regression test.
+
+      WHEN YOU FIX A FALSE POSITIVE FOUND IN THE WILD, ADD THE PATTERN HERE.
+      That is what stops it coming back.
+
+      Deliberate choices, so nobody "tidies" them away:
+        - The skip link is visible rather than clipped. Clipped text is a known
+          source of colour-contrast incomplete results, and this page must not
+          produce any.
+        - In-paragraph links are underlined, not colour-only, so link-in-text-block
+          passes for the right reason.
+        - Interactive targets are at least 24x24 CSS pixels, because the scan
+          config enables the wcag22aa tag and therefore target-size.
+        - Nothing is position: fixed or sticky. The focus-path probe must have
+          nothing to report here.
+    -->
+
+    <style>
+      :root {
+        color-scheme: light;
+      }
+
+      body {
+        margin: 0;
+        background: #ffffff;
+        color: #1a1a1a;
+        font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+        font-size: 16px;
+        line-height: 1.6;
+      }
+
+      header,
+      main,
+      footer {
+        max-width: 46rem;
+        margin: 0 auto;
+        padding: 1.25rem 1rem;
+      }
+
+      footer {
+        border-top: 1px solid #6b6b6b;
+      }
+
+      a {
+        color: #0b4f9e;
+        text-decoration: underline;
+      }
+
+      a:focus-visible,
+      button:focus-visible,
+      input:focus-visible {
+        outline: 3px solid #0b4f9e;
+        outline-offset: 2px;
+      }
+
+      .skip-link {
+        display: inline-block;
+        padding: 0.5rem 0.75rem;
+        background: #0b4f9e;
+        color: #ffffff;
+        text-decoration: underline;
+      }
+
+      nav ul {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin: 1rem 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      nav a {
+        display: inline-block;
+        min-width: 24px;
+        min-height: 24px;
+        padding: 0.5rem 0.25rem;
+      }
+
+      .field {
+        margin: 1rem 0;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 0.25rem;
+      }
+
+      input {
+        min-height: 2.5rem;
+        padding: 0.5rem;
+        border: 1px solid #6b6b6b;
+        background: #ffffff;
+        color: #1a1a1a;
+        font: inherit;
+      }
+
+      button {
+        min-width: 24px;
+        min-height: 2.5rem;
+        padding: 0.5rem 1rem;
+        border: 1px solid #0b4f9e;
+        background: #0b4f9e;
+        color: #ffffff;
+        font: inherit;
+      }
+
+      img {
+        max-width: 100%;
+        height: auto;
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <a class="skip-link" href="#main-content">Skip to main content</a>
+
+      <nav aria-label="Primary">
+        <ul>
+          <li><a href="#services">Services</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main id="main-content">
+      <h1>Northfield Water Authority</h1>
+
+      <p>
+        We supply drinking water to twelve thousand households. Our
+        <a href="#services">service schedule</a> lists planned interruptions two
+        weeks in advance.
+      </p>
+
+      <h2 id="services">Services</h2>
+
+      <ul>
+        <li>Meter reading and billing</li>
+        <li>Leak reporting, seven days a week</li>
+        <li>Water quality testing</li>
+      </ul>
+
+      <img
+        src="./reservoir.svg"
+        width="240"
+        height="120"
+        alt="The Northfield reservoir, half full, seen from the eastern bank."
+      />
+
+      <h2 id="contact">Contact</h2>
+
+      <form action="#" method="get">
+        <div class="field">
+          <label for="email">Email address</label>
+          <input id="email" name="email" type="email" autocomplete="email" />
+        </div>
+
+        <button type="submit">Request a callback</button>
+      </form>
+    </main>
+
+    <footer>
+      <p>Northfield Water Authority. Registered office, 4 Mill Lane.</p>
+    </footer>
+  </body>
+</html>

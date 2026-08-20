@@ -1,0 +1,59 @@
+{
+  "name": "a11y-ratchet",
+  "version": "0.1.0",
+  "description": "Accessibility regression testing: crawls a site, runs axe-core plus keyboard-interaction probes, maps findings to WCAG 2.2, and diffs two runs so CI can fail a PR on new violations.",
+  "keywords": [
+    "accessibility",
+    "a11y",
+    "wcag",
+    "regression",
+    "ci"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "bin": {
+    "a11y-ratchet": "dist/cli/index.js"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm run lint && npm run test",
+    "prepublishOnly": "npm run check && npm run build"
+  },
+  "dependencies": {
+    "axe-core": "4.13.0",
+    "commander": "^15.0.0",
+    "playwright": "^1.62.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.10.1",
+    "eslint": "^10.8.1",
+    "tsup": "^8.5.1",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.67.0",
+    "vitest": "^4.1.11"
+  }
+}

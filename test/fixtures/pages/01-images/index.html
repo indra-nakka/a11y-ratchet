@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Images — a11y-ratchet fixtures</title>
+
+    <!--
+      1.1.1 Non-text Content (Level A).
+
+      Authored from the criterion, not from axe's rule list (03-EVIDENCE.md §2.1).
+      If you write a fixture by enumerating axe rules, every planted defect is
+      found and the result proves only that axe works.
+
+      So this page plants nine realistic ways a site fails 1.1.1. Four of them the
+      tool cannot see, and those four are the point: they populate the coverage
+      matrix, the manual checklist, and the "what this cannot catch" section of
+      the README. Expectations are recorded in ../manifest.json.
+
+      Everything not listed there is meant to pass. If the scan reports something
+      the manifest does not predict, that is a finding about the tool.
+    -->
+
+    <style>
+      body {
+        margin: 0;
+        background: #ffffff;
+        color: #1a1a1a;
+        font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+        font-size: 16px;
+        line-height: 1.6;
+      }
+
+      header,
+      main,
+      footer {
+        max-width: 46rem;
+        margin: 0 auto;
+        padding: 1.25rem 1rem;
+      }
+
+      footer {
+        border-top: 1px solid #6b6b6b;
+      }
+
+      a {
+        color: #0b4f9e;
+        text-decoration: underline;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 0.25rem;
+      }
+
+      input[type="text"] {
+        min-height: 2.5rem;
+        padding: 0.5rem;
+        border: 1px solid #6b6b6b;
+        background: #ffffff;
+        color: #1a1a1a;
+        font: inherit;
+      }
+
+      /*
+        Defect 4: the "Certified" badge is drawn entirely with a CSS background
+        image and carries no text. It is information conveyed by a non-text
+        element that no DOM scanner can see.
+      */
+      .badge {
+        display: inline-block;
+        width: 48px;
+        height: 48px;
+        background: url("./icon.svg") center / contain no-repeat;
+      }
+
+      figure {
+        margin: 1.5rem 0;
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <!-- Defect 6: role="img" on an SVG with no accessible name. -->
+      <svg
+        id="brand-mark"
+        role="img"
+        width="48"
+        height="48"
+        viewBox="0 0 48 48"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <circle cx="24" cy="24" r="22" fill="#0b4f9e" />
+      </svg>
+    </header>
+
+    <main>
+      <h1>Quarterly water quality report</h1>
+
+      <!-- Defect 1: informative image with no alt attribute at all. -->
+      <figure>
+        <img id="turbidity-chart" src="./chart.svg" width="240" height="120" />
+        <figcaption>Turbidity, January to March.</figcaption>
+      </figure>
+
+      <!-- Defect 3: alt is present, and useless. Passes image-alt, fails 1.1.1. -->
+      <figure>
+        <img id="sampling-photo" src="./photo.svg" width="240" height="120" alt="DSC_0421.jpg" />
+        <figcaption>Sampling at the eastern inlet.</figcaption>
+      </figure>
+
+      <!-- Defect 2: purely decorative rule, given a meaningless alt instead of alt="". -->
+      <img id="section-divider" src="./icon.svg" width="240" height="8" alt="divider" />
+
+      <h2>Certification</h2>
+
+      <p>
+        This laboratory holds current accreditation.
+        <!-- Defect 4: the accreditation status is carried only by a background image. -->
+        <span id="accreditation-badge" class="badge"></span>
+      </p>
+
+      <h2>Service regions</h2>
+
+      <!-- Defect 9: the first area has no alt; the second is fine. -->
+      <img
+        id="regions-map"
+        src="./chart.svg"
+        width="240"
+        height="120"
+        alt="Service regions, north and south."
+        usemap="#regions"
+      />
+      <map name="regions">
+        <area id="region-north" shape="rect" coords="0,0,120,120" href="#north" />
+        <area
+          id="region-south"
+          shape="rect"
+          coords="120,0,240,120"
+          href="#south"
+          alt="Southern region"
+        />
+      </map>
+
+      <h2>Search the report</h2>
+
+      <form action="#" method="get">
+        <label for="report-query">Search terms</label>
+        <input id="report-query" name="q" type="text" />
+        <!-- Defect 5: image submit button with no alt. -->
+        <input id="report-search" type="image" src="./icon.svg" width="32" height="32" />
+      </form>
+
+      <h2>Ratings</h2>
+
+      <!-- Defect 7: role="img" on a div with no accessible name. -->
+      <div id="star-rating" role="img">★★★★☆</div>
+
+      <!-- Defect 8: the link's only content is an image with empty alt, so the
+           link has no accessible name. A 1.1.1 mistake that surfaces as 4.1.2. -->
+      <p>
+        <a id="basket-link" href="#basket"><img src="./icon.svg" width="32" height="32" alt="" /></a>
+      </p>
+    </main>
+
+    <footer>
+      <p>Northfield Water Authority.</p>
+    </footer>
+  </body>
+</html>

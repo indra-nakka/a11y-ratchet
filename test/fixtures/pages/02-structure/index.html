@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Structure — a11y-ratchet fixtures</title>
+
+    <!--
+      1.3.1 Info and Relationships (Level A).
+
+      Authored from the criterion (03-EVIDENCE.md §2.1). The criterion is about
+      whether relationships conveyed visually are also available programmatically,
+      so the interesting failures are the ones where the DOM looks fine and the
+      relationship exists only in the layout. Those are invisible to any static
+      scanner, and four of the nine defects here are exactly that.
+
+      Expectations are recorded in ../manifest.json.
+    -->
+
+    <style>
+      body {
+        margin: 0;
+        background: #ffffff;
+        color: #1a1a1a;
+        font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+        font-size: 16px;
+        line-height: 1.6;
+      }
+
+      header,
+      main,
+      footer {
+        max-width: 46rem;
+        margin: 0 auto;
+        padding: 1.25rem 1rem;
+      }
+
+      footer {
+        border-top: 1px solid #6b6b6b;
+      }
+
+      .skip-link {
+        display: inline-block;
+        padding: 0.5rem 0.75rem;
+        background: #0b4f9e;
+        color: #ffffff;
+        text-decoration: underline;
+      }
+
+      table {
+        border-collapse: collapse;
+        margin: 1rem 0;
+      }
+
+      th,
+      td {
+        border: 1px solid #6b6b6b;
+        padding: 0.4rem 0.75rem;
+        text-align: left;
+      }
+
+      /* Defect 2: a heading in every visual sense, and a paragraph in the DOM. */
+      .fake-heading {
+        margin: 1.5rem 0 0.5rem;
+        font-size: 1.5rem;
+        font-weight: 700;
+      }
+
+      /* Defect 1: a table drawn with divs. Rows and columns exist only in CSS. */
+      .fake-table {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        margin: 1rem 0;
+        border: 1px solid #6b6b6b;
+      }
+
+      .fake-table > div {
+        padding: 0.4rem 0.75rem;
+        border-bottom: 1px solid #d4d4d4;
+      }
+
+      .fake-table > div:nth-child(-n + 3) {
+        font-weight: 700;
+        background: #eef2f6;
+      }
+
+      /* Defect 8: the radio group is captioned visually and grouped nowhere else. */
+      .group-caption {
+        margin: 1.5rem 0 0.25rem;
+        font-weight: 700;
+      }
+
+      .radio-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .radio-row label {
+        margin: 0;
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <nav aria-label="Primary">
+        <a class="skip-link" href="#main-content">Skip to main content</a>
+      </nav>
+    </header>
+
+    <main id="main-content">
+      <h1>Supply network documentation</h1>
+
+      <!-- Defect 2: fake heading. Sighted users see a section break; nothing else does. -->
+      <p class="fake-heading" id="fake-heading-safety">Water safety</p>
+
+      <p>Chlorine residual is measured at four points across the network.</p>
+
+      <!-- Defect 1: fake table. The column relationship is pure CSS grid. -->
+      <div class="fake-table" id="fake-table-readings">
+        <div>Site</div>
+        <div>Residual</div>
+        <div>Sampled</div>
+        <div>North inlet</div>
+        <div>0.42 mg/L</div>
+        <div>12 March</div>
+        <div>Mill Lane</div>
+        <div>0.38 mg/L</div>
+        <div>12 March</div>
+      </div>
+
+      <h2>Charges by band</h2>
+
+      <!-- Defect 5: a headers attribute referring to an id that is not in the table. -->
+      <table id="charges-table">
+        <caption>
+          Standing charges by band
+        </caption>
+        <tbody>
+          <tr>
+            <th id="charge-band" scope="col">Band</th>
+            <th id="charge-amount" scope="col">Charge</th>
+          </tr>
+          <tr>
+            <td headers="charge-band">A</td>
+            <td id="charge-amount-a" headers="charge-amount charge-footnote">12.40</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Sampling sites</h2>
+
+      <!-- Defect 6: the Notes column header describes no data cells. -->
+      <table id="sites-table">
+        <caption>
+          Sampling sites and readings
+        </caption>
+        <tbody>
+          <tr>
+            <th scope="col">Site</th>
+            <th scope="col">Reading</th>
+            <th id="sites-notes" scope="col">Notes</th>
+          </tr>
+          <tr>
+            <td>North inlet</td>
+            <td>0.42 mg/L</td>
+          </tr>
+          <tr>
+            <td>Mill Lane</td>
+            <td>0.38 mg/L</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Maintenance tasks</h2>
+
+      <!-- Defect 3: a non-li child inside a list. -->
+      <ul id="tasks-list">
+        <li>Flush the eastern main</li>
+        <div id="tasks-stray-div">Replace the Mill Lane valve</div>
+        <li>Recalibrate the North inlet sensor</li>
+      </ul>
+
+      <!-- Defect 4: a list item with no list parent. -->
+      <div id="orphan-item-wrapper">
+        <li id="orphan-item">Inspect the reservoir overflow</li>
+      </div>
+
+      <!-- Defect 7: description list markup with no dl ancestor. -->
+      <div id="orphan-definition-wrapper">
+        <dt id="orphan-term">Residual</dt>
+        <dd id="orphan-definition">Chlorine remaining after treatment.</dd>
+      </div>
+
+      <!-- Defect 9: heading level skipped, h2 straight to h4. -->
+      <h4 id="skipped-level-heading">Reporting a fault</h4>
+
+      <p>Call the leak line at any hour.</p>
+
+      <!-- Defect 8: radio group captioned by a styled paragraph, with no fieldset or legend. -->
+      <p class="group-caption" id="contact-preference-caption">Preferred contact method</p>
+
+      <form action="#" method="get">
+        <div class="radio-row">
+          <input id="contact-email" type="radio" name="contact" value="email" />
+          <label for="contact-email">Email</label>
+        </div>
+        <div class="radio-row">
+          <input id="contact-phone" type="radio" name="contact" value="phone" />
+          <label for="contact-phone">Phone</label>
+        </div>
+        <div class="radio-row">
+          <input id="contact-post" type="radio" name="contact" value="post" />
+          <label for="contact-post">Post</label>
+        </div>
+      </form>
+    </main>
+
+    <footer>
+      <p>Northfield Water Authority.</p>
+    </footer>
+  </body>
+</html>

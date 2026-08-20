@@ -1,0 +1,67 @@
+import { Command } from 'commander';
+
+import { scan } from '../../index.js';
+import { run } from '../runtime.js';
+
+/**
+ * `scan` — crawl a site and produce a report.
+ *
+ * Parse args, call the library, format the result. Nothing else belongs here.
+ */
+export function scanCommand(): Command {
+  return new Command('scan')
+    .description('Crawl a site, run axe-core and the interaction probes, and write a report')
+    .argument('[url]', 'base URL to crawl (omit when using --sitemap or --url-list)')
+
+    .option('--sitemap <path>', 'seed from a sitemap.xml URL or file (sitemap indexes are followed)')
+    .option('--url-list <path>', 'seed from a file of newline-delimited URLs')
+    .option('--include <glob...>', 'only crawl URLs matching these globs')
+    .option('--exclude <glob...>', 'never crawl URLs matching these globs')
+    .option('--max-depth <n>', 'BFS crawl depth', '2')
+    .option('--max-pages <n>', 'stop after this many pages', '50')
+    .option('--no-robots', 'ignore robots.txt (respected by default)')
+    .option('--delay <ms>', 'politeness delay between requests to one origin', '250')
+    .option('--concurrency <n>', 'parallel pages; above 8 results destabilise and diffs suffer', '3')
+
+    .option(
+      '--mode <mode>',
+      'ci blocks third-party requests for diff stability; audit allows them so the focus probe sees real overlays',
+      'ci',
+    )
+    .option('--config <path>', 'config file', '.a11y/config.json')
+    .option('--storage-state <path>', 'Playwright storageState file, for scanning behind auth')
+
+    .option('--viewport <WxH>', 'viewport size, recorded in the report', '1280x800')
+    .option('--locale <locale>', 'browser locale, recorded in the report', 'en-US')
+    .option('--color-scheme <scheme>', 'light, dark or no-preference', 'light')
+    .option('--settle-strategy <strategy>', 'default, domcontentloaded, load or networkidle', 'default')
+    .option('--settle-quiet-ms <ms>', 'mutation quiet period before scanning', '150')
+
+    .option('--probes <id...>', 'probes to run (default: all)')
+    .option('--no-probes', 'skip the interaction probes')
+    .option('--include-best-practice', 'include axe best-practice rules; they are never WCAG failures and never gate')
+
+    .option('--out <path>', 'write the JSON report here')
+    .option('--html <path>', 'write a self-contained HTML report here')
+    .option('--ungrouped', 'print the flat finding list instead of the grouped view')
+    .option('--fail-on <n>', 'exit 5 if violations exceed this count (no baseline involved)')
+    .option('--quiet', 'suppress the terminal summary')
+
+    .addHelpText(
+      'after',
+      `
+Notes:
+  This tool detects a minority of accessibility defects. Automated tools catch
+  roughly 30-40% of WCAG failures; the rest need a human with a keyboard and a
+  screen reader. Run 'a11y-ratchet manual' for the checklist covering the rest.
+
+  Probe findings are bucketed needs-review and never affect the exit code.
+`,
+    )
+
+    .action((url: string | undefined) =>
+      run(async () => {
+        await scan({ seed: { ...(url ? { url } : {}) } });
+      }),
+    );
+}

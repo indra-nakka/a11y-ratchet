@@ -1,0 +1,275 @@
+{
+  "$schemaNote": "Expectations for every planted fixture defect (03-EVIDENCE.md §2.2). Each entry records the criterion it fails, what the tool is expected to do about it, and - for misses - why the miss is legitimate. The misses are the point: they populate the coverage matrix, the manual checklist, and the README's 'what this cannot catch' section.",
+  "$honesty": "expectation describes the behaviour of THIS axe-core version with THIS tool's configuration. It is not a correctness invariant. When a rule tightens and a 'missed' defect starts being detected, the test failing is the signal to update the coverage matrix - not to quietly relax the expectation.",
+  "$metric": "The counts derived from this file are a regression metric, not a catch rate (03-EVIDENCE.md §2.5). They are fully determined by which unautomatable defects were chosen to plant, so they measure fixture design, not real-world recall. Never publish them as a recall figure.",
+
+  "axeCoreVersion": "4.13.0",
+  "expectations": ["detected", "needs-review", "missed"],
+
+  "pages": [
+    {
+      "path": "01-images/index.html",
+      "criteria": ["1.1.1", "4.1.2"],
+      "defects": [
+        {
+          "id": "images-no-alt",
+          "selector": "#turbidity-chart",
+          "criterion": "1.1.1",
+          "level": "A",
+          "description": "Informative chart image with no alt attribute at all.",
+          "expectation": "detected",
+          "expectedRules": ["image-alt"]
+        },
+        {
+          "id": "images-decorative-with-alt",
+          "selector": "#section-divider",
+          "criterion": "1.1.1",
+          "level": "A",
+          "description": "Purely decorative divider given alt=\"divider\" instead of alt=\"\", so a screen reader announces a meaningless word mid-content.",
+          "expectation": "missed",
+          "expectedRules": [],
+          "rationale": "Whether an image is decorative is a judgement about the page's meaning. axe can see that alt exists and is non-empty; it cannot see that the image carries no information. No automated rule can."
+        },
+        {
+          "id": "images-filename-alt",
+          "selector": "#sampling-photo",
+          "criterion": "1.1.1",
+          "level": "A",
+          "description": "alt=\"DSC_0421.jpg\" - alt text present, and useless.",
+          "expectation": "missed",
+          "expectedRules": [],
+          "rationale": "Passes image-alt because alt is present and non-empty. Judging whether alt text describes the image is the most common real 1.1.1 failure and is not automatable. This is the README's headline example of a defect that passes every automated check."
+        },
+        {
+          "id": "images-css-background-conveys-meaning",
+          "selector": "#accreditation-badge",
+          "criterion": "1.1.1",
+          "level": "A",
+          "description": "Accreditation status conveyed entirely by a CSS background-image on an empty span, with no text equivalent.",
+          "expectation": "missed",
+          "expectedRules": [],
+          "rationale": "CSS background images are not in the accessibility tree and have no alt mechanism. axe deliberately does not flag them, because most are decorative. Distinguishing the informative ones requires reading the page."
+        },
+        {
+          "id": "images-input-image-no-alt",
+          "selector": "#report-search",
+          "criterion": "1.1.1",
+          "level": "A",
+          "description": "Image submit button with no alt, so the control has no accessible name.",
+          "expectation": "detected",
+          "expectedRules": ["input-image-alt"]
+        },
+        {
+          "id": "images-svg-role-img-no-name",
+          "selector": "#brand-mark",
+          "criterion": "1.1.1",
+          "level": "A",
+          "description": "Inline SVG with role=\"img\" and no title, aria-label or aria-labelledby.",
+          "expectation": "detected",
+          "expectedRules": ["svg-img-alt"]
+        },
+        {
+          "id": "images-div-role-img-no-name",
+          "selector": "#star-rating",
+          "criterion": "1.1.1",
+          "level": "A",
+          "description": "Star rating built from text characters and marked role=\"img\", which takes its name from the author only - and none was given.",
+          "expectation": "detected",
+          "expectedRules": ["role-img-alt"]
+        },
+        {
+          "id": "images-link-wrapping-empty-alt",
+          "selector": "#basket-link",
+          "criterion": "4.1.2",
+          "level": "A",
+          "description": "A link whose only content is an image marked decorative, leaving the link with no accessible name. A 1.1.1 mistake that surfaces as a 4.1.2 failure.",
+          "expectation": "detected",
+          "expectedRules": ["link-name"]
+        },
+        {
+          "id": "images-area-no-alt",
+          "selector": "#region-north",
+          "criterion": "1.1.1",
+          "level": "A",
+          "description": "Image map area with an href and no alt; the sibling area is labelled correctly.",
+          "expectation": "detected",
+          "expectedRules": ["area-alt"]
+        }
+      ]
+    },
+
+    {
+      "path": "02-structure/index.html",
+      "criteria": ["1.3.1"],
+      "defects": [
+        {
+          "id": "structure-fake-table",
+          "selector": "#fake-table-readings",
+          "criterion": "1.3.1",
+          "level": "A",
+          "description": "Tabular data laid out with CSS grid. Sighted users see three labelled columns; the DOM is a flat run of divs.",
+          "expectation": "missed",
+          "expectedRules": [],
+          "rationale": "There is no markup error to detect - the divs are valid. Recognising that a grid is semantically a table requires understanding the content, which is what makes 1.3.1 mostly manual."
+        },
+        {
+          "id": "structure-fake-heading",
+          "selector": "#fake-heading-safety",
+          "criterion": "1.3.1",
+          "level": "A",
+          "description": "A section break styled as a heading and marked up as a paragraph, so it is absent from the heading outline.",
+          "expectation": "missed",
+          "expectedRules": [],
+          "rationale": "Detecting this means deciding that a large bold paragraph was intended as a heading. Font-size heuristics for this misfire constantly on pull quotes, prices and hero copy."
+        },
+        {
+          "id": "structure-list-non-li-child",
+          "selector": "#tasks-stray-div",
+          "criterion": "1.3.1",
+          "level": "A",
+          "description": "A div placed directly inside a ul, breaking the list structure.",
+          "expectation": "detected",
+          "expectedRules": ["list"]
+        },
+        {
+          "id": "structure-orphan-listitem",
+          "selector": "#orphan-item",
+          "criterion": "1.3.1",
+          "level": "A",
+          "description": "An li with no ul or ol ancestor, so it is not exposed as part of any list.",
+          "expectation": "detected",
+          "expectedRules": ["listitem"]
+        },
+        {
+          "id": "structure-td-headers-dangling",
+          "selector": "#charge-amount-a",
+          "criterion": "1.3.1",
+          "level": "A",
+          "description": "A td whose headers attribute references an id that does not exist in the table.",
+          "expectation": "detected",
+          "expectedRules": ["td-headers-attr"]
+        },
+        {
+          "id": "structure-th-without-data-cells",
+          "selector": "#sites-notes",
+          "criterion": "1.3.1",
+          "level": "A",
+          "description": "A column header that describes no data cells, because every row is one cell short.",
+          "expectation": "detected",
+          "expectedRules": ["th-has-data-cells"]
+        },
+        {
+          "id": "structure-orphan-definition",
+          "selector": "#orphan-definition",
+          "criterion": "1.3.1",
+          "level": "A",
+          "description": "dt and dd markup with no dl ancestor, so the term-definition relationship is not exposed.",
+          "expectation": "detected",
+          "expectedRules": ["dlitem"]
+        },
+        {
+          "id": "structure-radio-group-without-fieldset",
+          "selector": "#contact-preference-caption",
+          "criterion": "1.3.1",
+          "level": "A",
+          "description": "Three radio buttons captioned by a styled paragraph, with no fieldset or legend and no role=\"radiogroup\". Each control is individually labelled, so the group question is lost.",
+          "expectation": "missed",
+          "expectedRules": [],
+          "rationale": "Every input has a correct label, which is all axe checks. Inferring that a preceding paragraph is the group's caption is exactly the visually-implied relationship the criterion is about, and there is no reliable signal for it."
+        },
+        {
+          "id": "structure-skipped-heading-level",
+          "selector": "#skipped-level-heading",
+          "criterion": "1.3.1",
+          "level": "A",
+          "description": "An h4 following an h2, skipping a level in the outline.",
+          "expectation": "missed",
+          "expectedRules": [],
+          "rationale": "axe's heading-order rule is tagged best-practice, not WCAG, and this tool leaves best-practice rules off by default. Skipping a level is poor practice but is not in itself a 1.3.1 failure - presenting it as one is a large part of why practitioners distrust scanners. Run with --include-best-practice to see it, bucketed as a best-practice finding that never gates."
+        }
+      ]
+    },
+
+    {
+      "path": "03-contrast/index.html",
+      "criteria": ["1.4.3", "1.4.6"],
+      "defects": [
+        {
+          "id": "contrast-body-text",
+          "selector": "#contrast-body",
+          "criterion": "1.4.3",
+          "level": "AA",
+          "description": "Body text at #999999 on #ffffff - 2.85:1, against a 4.5:1 requirement.",
+          "expectation": "detected",
+          "expectedRules": ["color-contrast"]
+        },
+        {
+          "id": "contrast-large-text",
+          "selector": "#contrast-large",
+          "criterion": "1.4.3",
+          "level": "AA",
+          "description": "24px bold text at #a9a9a9 on #ffffff - 2.35:1. Large text still needs 3:1.",
+          "expectation": "detected",
+          "expectedRules": ["color-contrast"]
+        },
+        {
+          "id": "contrast-on-gradient",
+          "selector": "#contrast-gradient",
+          "criterion": "1.4.3",
+          "level": "AA",
+          "description": "Text over a left-to-right gradient that is legible at one end and not the other.",
+          "expectation": "needs-review",
+          "expectedRules": ["color-contrast"],
+          "rationale": "axe cannot resolve a gradient to a single background colour and returns incomplete rather than guessing. Surfacing that as needs-review rather than dropping it is the whole reason the bucket exists."
+        },
+        {
+          "id": "contrast-on-image",
+          "selector": "#contrast-image",
+          "criterion": "1.4.3",
+          "level": "AA",
+          "description": "Text over a repeating background image.",
+          "expectation": "needs-review",
+          "expectedRules": ["color-contrast"],
+          "rationale": "The effective background varies per pixel. No static analysis resolves it; a person has to look."
+        },
+        {
+          "id": "contrast-on-translucent-scrim",
+          "selector": "#contrast-scrim",
+          "criterion": "1.4.3",
+          "level": "AA",
+          "description": "White text on a 55% white scrim over a background image - illegible in practice.",
+          "expectation": "needs-review",
+          "expectedRules": ["color-contrast"],
+          "rationale": "Alpha compositing over an image cannot be resolved to one colour, so axe reports incomplete."
+        },
+        {
+          "id": "contrast-pseudo-disabled-control",
+          "selector": "#contrast-pseudo-disabled",
+          "criterion": "1.4.3",
+          "level": "AA",
+          "description": "A button styled to look disabled but not actually disabled - #b0b0b0 on #f2f2f2, 1.94:1. Genuinely disabled controls are exempt from 1.4.3; this one is operable, so it is not.",
+          "expectation": "detected",
+          "expectedRules": ["color-contrast"]
+        },
+        {
+          "id": "contrast-aaa-only",
+          "selector": "#contrast-aaa-only",
+          "criterion": "1.4.6",
+          "level": "AAA",
+          "description": "Text at #666666 on #ffffff - 5.74:1. Passes 1.4.3 at AA, fails 1.4.6 at AAA.",
+          "expectation": "missed",
+          "expectedRules": [],
+          "rationale": "A deliberate scope decision, not a limitation. This tool targets A and AA, so axe's color-contrast-enhanced rule is not enabled. Enabling the wcag2aaa tag would detect it. Recorded here so the boundary is visible rather than assumed."
+        }
+      ]
+    },
+
+    {
+      "path": "10-clean/index.html",
+      "criteria": [],
+      "expectZeroFindings": true,
+      "note": "The most important page in the suite. Zero violations, zero needs-review, zero best-practice findings, zero probe findings - including with best-practice rules enabled. Every scanner has false positives; the ones that survive are the ones with a clean-page regression test. When a false positive is found on a real site and fixed, add the pattern to this page.",
+      "defects": []
+    }
+  ]
+}

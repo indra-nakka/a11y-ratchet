@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Contrast — a11y-ratchet fixtures</title>
+
+    <!--
+      1.4.3 Contrast (Minimum) (Level AA).
+
+      The highest-yield automated check there is, and the one with the most
+      honest failure mode: axe returns "incomplete" rather than guessing whenever
+      it cannot resolve the background — gradients, images, transparency. Those
+      results must be surfaced as needs-review, never dropped, or the tool
+      quietly under-reports on exactly the pages that need looking at.
+
+      Three of the seven defects here are incomplete-by-design. One is a
+      deliberate policy miss: it passes AA and fails AAA, and this tool targets
+      A and AA, so color-contrast-enhanced is not enabled. That miss is a scope
+      decision, not a limitation of the implementation - the manifest says so.
+
+      Ratios below are computed against #ffffff unless stated.
+    -->
+
+    <style>
+      body {
+        margin: 0;
+        background: #ffffff;
+        color: #1a1a1a;
+        font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+        font-size: 16px;
+        line-height: 1.6;
+      }
+
+      header,
+      main,
+      footer {
+        max-width: 46rem;
+        margin: 0 auto;
+        padding: 1.25rem 1rem;
+      }
+
+      footer {
+        border-top: 1px solid #6b6b6b;
+      }
+
+      /* Defect 1: 2.85:1. Normal text needs 4.5:1. */
+      .low-body {
+        color: #999999;
+      }
+
+      /* Defect 2: 2.35:1 at 24px bold, which is large text and still needs 3:1. */
+      .low-large {
+        color: #a9a9a9;
+        font-size: 24px;
+        font-weight: 700;
+      }
+
+      /* Defect 5: 5.74:1. Passes AA, fails AAA's 7:1. */
+      .aaa-only {
+        color: #666666;
+      }
+
+      /* Defect 3: axe cannot resolve a gradient to one background colour. */
+      .on-gradient {
+        padding: 1rem;
+        background: linear-gradient(90deg, #ffffff 0%, #7a7a7a 100%);
+        color: #8a8a8a;
+      }
+
+      /* Defect 4: same problem, background image. */
+      .on-image {
+        padding: 1rem;
+        background: url("./texture.svg") repeat;
+        color: #7d7d7d;
+      }
+
+      /* Defect 6: white text over a translucent scrim above an image. */
+      .on-scrim {
+        position: relative;
+        padding: 1rem;
+        background: url("./texture.svg") repeat;
+      }
+
+      .on-scrim > .scrim {
+        display: block;
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.55);
+        color: #ffffff;
+      }
+
+      /*
+        Defect 7: styled to look disabled, and not disabled. A genuinely disabled
+        control is exempt from 1.4.3; this one is operable, so it is not.
+        1.94:1 at #b0b0b0 on #f2f2f2.
+      */
+      .pseudo-disabled {
+        min-height: 2.5rem;
+        padding: 0.5rem 1rem;
+        border: 1px solid #d4d4d4;
+        background: #f2f2f2;
+        color: #b0b0b0;
+        font: inherit;
+      }
+
+      button.primary {
+        min-height: 2.5rem;
+        padding: 0.5rem 1rem;
+        border: 1px solid #0b4f9e;
+        background: #0b4f9e;
+        color: #ffffff;
+        font: inherit;
+      }
+
+      .skip-link {
+        display: inline-block;
+        padding: 0.5rem 0.75rem;
+        background: #0b4f9e;
+        color: #ffffff;
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <nav aria-label="Primary">
+        <a class="skip-link" href="#main-content">Skip to main content</a>
+      </nav>
+    </header>
+
+    <main id="main-content">
+      <h1>Tariff information</h1>
+
+      <!-- Defect 1 -->
+      <p id="contrast-body" class="low-body">
+        Meter readings submitted after the fifteenth are billed in the following quarter.
+      </p>
+
+      <!-- Defect 2 -->
+      <p id="contrast-large" class="low-large">Payment is due within 28 days</p>
+
+      <!-- Defect 5 -->
+      <p id="contrast-aaa-only" class="aaa-only">
+        Direct debit customers receive a two percent discount.
+      </p>
+
+      <!-- Defect 3 -->
+      <p id="contrast-gradient" class="on-gradient">
+        Emergency supply is restored within four hours.
+      </p>
+
+      <!-- Defect 4 -->
+      <p id="contrast-image" class="on-image">
+        Standpipes are located at the four sites listed below.
+      </p>
+
+      <!-- Defect 6 -->
+      <div id="contrast-scrim" class="on-scrim">
+        <span class="scrim">Planned interruption, 04:00 to 06:00.</span>
+      </div>
+
+      <p>
+        <!-- Defect 7 -->
+        <button id="contrast-pseudo-disabled" class="pseudo-disabled" type="button">
+          Download tariff PDF
+        </button>
+      </p>
+
+      <p>
+        <button class="primary" type="button">Contact billing</button>
+      </p>
+    </main>
+
+    <footer>
+      <p>Northfield Water Authority.</p>
+    </footer>
+  </body>
+</html>
