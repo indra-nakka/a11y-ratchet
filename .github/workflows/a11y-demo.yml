@@ -1,0 +1,67 @@
+name: a11y-ratchet demo
+
+# Gates pull requests that touch the demo site against the committed
+# baseline at .a11y/baseline.json (01 §11). This workflow, and the two
+# demo PRs it has run against, are the working evidence linked from the
+# README's GitHub Action section (03 Part 3.8) - "a CI feature nobody can
+# see running is a claim; a linked PR is evidence."
+
+on:
+  pull_request:
+    paths:
+      - 'examples/demo-site/**'
+      - '.a11y/baseline.json'
+      - 'action.yml'
+      - 'src/**'
+      - '.github/workflows/a11y-demo.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  a11y:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # A plain static file server for the demo site - no framework, no
+      # build step, just `examples/demo-site/index.html` on localhost, so
+      # the Action's `url` input has something real to scan and a demo PR
+      # can change what gets served by changing a file in this repo.
+      - name: Serve the demo site
+        run: |
+          node -e "
+            const { createServer } = require('node:http');
+            const { readFile } = require('node:fs/promises');
+            const { join, extname } = require('node:path');
+            const ROOT = join(process.cwd(), 'examples/demo-site');
+            const TYPES = { '.html': 'text/html', '.css': 'text/css' };
+            createServer(async (req, res) => {
+              const path = req.url === '/' ? '/index.html' : req.url;
+              try {
+                const body = await readFile(join(ROOT, path));
+                res.writeHead(200, { 'content-type': TYPES[extname(path)] ?? 'application/octet-stream' });
+                res.end(body);
+              } catch {
+                res.writeHead(404).end('not found');
+              }
+            }).listen(4173, '127.0.0.1', () => console.log('demo site listening on 4173'));
+          " &
+          # The Action's own steps (Node/Chromium install, build) take far
+          # longer than the server needs to come up; this is a floor, not
+          # a race - a failed connection in the scan step would surface as
+          # a page navigation-failed error either way, not a silent hang.
+          sleep 1
+
+      - name: a11y-ratchet
+        uses: ./
+        with:
+          url: http://127.0.0.1:4173/
+          baseline: .a11y/baseline.json
+          max-depth: '0'
+          mode: ci

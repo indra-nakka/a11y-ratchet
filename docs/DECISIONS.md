@@ -1963,3 +1963,156 @@ runtime module, which is the gap `00 §7` cut line 5 is actually worried
 about (a broken build, not a subtly wrong type signature); a full
 type-level assertion suite is more machinery than today's scope asked
 for and would be its own, separately-scoped addition.
+
+---
+
+## 2026-08-21 — Day 12
+
+### D80. Pre-flight, before the repo went public
+
+Checked, not assumed, per D16's own instruction to correct the LICENSE
+"before the repo is published" - this is that moment.
+
+- **LICENSE copyright holder**: was `Anudeep` (D16: inferred from an old
+  git config, flagged then for exactly this check). Every actual commit is
+  authored `Indra D Nakka <indra-nakka@users.noreply.github.com>`, and the
+  GitHub repo is `indra-nakka/a11y-ratchet` - a real mismatch, not a
+  formality. Asked; corrected to `Indra D Nakka`.
+- **storageState / session cookies in history**: none. Checked the
+  working tree, every file path ever committed across the full history
+  (`git log --all --pretty=format: --name-only`) for
+  auth/session/cookie/credential-shaped names, and pickaxed the entire
+  history (`git log --all -S`) for Playwright's storageState JSON
+  signature (`"cookies"`, `"origins"` as top-level keys) - zero matches
+  either way.
+- **Committed scan artefacts / baselines from the Wikipedia, react.dev,
+  books.toscrape, Vue and MDN real-site runs**: none exist, in the working
+  tree or anywhere in history. Those runs (D41-D44, D52-53, D63ish,
+  D72) live in `DECISIONS.md` as numbers and prose, generated via
+  scratchpad scripts against a locally built `dist/`, never committed as
+  files - confirmed by listing every path ever committed outside
+  `src/`/`test/`/`docs/`/`.github/`/`scripts/` and finding nothing
+  report-or-baseline-shaped. Nothing to publish "deliberately, not by
+  accident" here because nothing was ever at risk of the accident.
+- **`.gitignore`**: `node_modules/`, `dist/`, `coverage/`,
+  `*.tsbuildinfo`, `.a11y/*.local.json`, editor/OS cruft and `.env*`
+  (with `.env.example` explicitly un-ignored) were already in place from
+  earlier days. `.a11y/*.local.json` deliberately does NOT ignore
+  `.a11y/baseline.json` itself (`01 §11`: the baseline is meant to be
+  committed) - confirmed this is intentional, not a gap, before today's
+  own baseline (D84) landed in that same directory.
+- **Repo visibility, description, topics, Issues**: was private, no
+  description, no topics. Asked whether to flip visibility now or leave
+  it for later; told to flip now. Set to public, description added,
+  topics `accessibility`/`wcag`/`axe-core`/`playwright`/`a11y` added.
+  Issues was already enabled.
+
+### D81. `playwright` pinned exact; a pre-existing `npm run typecheck` failure found and fixed
+
+`playwright` was `^1.62.1` in `package.json` (a caret range) while
+`axe-core` has been exact-pinned (`4.13.0`, no caret) since Day 1
+specifically so a dependency bump can't silently shift results - the
+Chromium binary Playwright installs is tied to the `playwright` package
+version, so the same reasoning applies to it now that a public CI
+consumer could `npm ci` and land a newer Chromium than whatever main was
+verified against. Repinned to `1.62.1` exact (already what was locked),
+regenerated `package-lock.json` (`npm install --package-lock-only` -
+one-line diff, no transitive changes since it was already resolving to
+that exact version).
+
+Separately, `npm run typecheck` was already failing on a clean `main`
+before any of today's changes (confirmed with `git stash`):
+`test/fixtures/server.ts`'s `start()` returned a module-scope `let
+origin: string | null`, and TS's control-flow analysis does not retain a
+`while`-loop-body narrowing of a mutable outer-scope variable across the
+loop's exit, even though the only exit path (`server = instance; origin =
+...`) always sets both together. Not something today's changes caused,
+but pre-flight for a public repo has to mean "does the build actually
+pass," not just "did I break it further" - fixed by returning the
+computed origin directly from inside the loop (a `throw
+new Error('unreachable')` after it satisfies the return type without a
+non-null assertion papering over the gap). Verified: `npm run typecheck`
+clean both before and after this fix relative to today's other changes
+(isolated with `git stash`).
+
+### D82. `report/diffTemplateGroups.ts` — the template-tier grouping extracted, not duplicated a third time
+
+The CI job-summary markdown (D84) needs the same "group a diff bucket by
+`templateKey`, highest impact wins" logic Day 11's HTML diff view
+(`report/html/renderDiff.ts`) already has inline. Extracted into its own
+module (`groupFindingsByTemplate`/`groupPairsByTemplate`/
+`diffGroupInstanceCount`) rather than copy the ~50 lines a second time or
+have the markdown renderer reach into the HTML module's internals.
+`report/html/renderDiff.ts` now imports from it too - verified zero
+behaviour change (its own 12 tests and the real-catalogue self-scan test
+still pass unchanged).
+
+### D83. The Action's engine-drift input is `allow-engine-drift`, not `allow-incompatible` — and it maps to exit 4, not exit 6
+
+Today's task described the axe-core-version escape hatch as hitting
+"exit 6" and asked for an `allow-incompatible` input. Both `01 §3`
+("Engine-drift guard") and the existing library code disagree with that,
+consistently with each other: diffing across `axe-core` versions is exit
+**4** (`Engine drift without --allow-engine-drift`), and the Action input
+`01 §3` itself specifies is named `allow-engine-drift: true`. Exit **6**
+is a different guard entirely - `incompatibleRunConfig`
+(`mode`/`viewport`/`locale`/`colorScheme`/`bypassCSP` mismatches, D5) -
+and `types.ts`'s own comment on it is explicit: "refuses the diff (exit
+code 6) — always, with no override flag, **unlike engineDrift**." D5's
+reasoning: a light-mode baseline diffed against a dark-mode head produces
+"phantom contrast regressions of the same class as engine drift," so
+allowing an override here would reopen exactly the false-regression risk
+the guard exists to close - unlike engine drift, where the override is
+safe because the PR is *deliberately* bumping a version and the banner
+makes that visible in the report.
+
+Followed the docs rather than the task's wording (`CLAUDE.md`: docs are
+authoritative; deviate from a doc and note why, not from a request that
+conflicts with one that's already settled and self-consistent across two
+independent sources). The Action's `allow-engine-drift` input maps to
+`--allow-engine-drift` / exit 4, exactly as `01 §3` specifies. No input
+exists for exit 6, and none should - see the final report on whether
+exit 6 is recoverable in CI for what that means in practice for someone
+who hits it.
+
+### D84. CI job-summary markdown (`report/stepSummary.ts`) and the composite Action
+
+`renderDiffStepSummary(result, headReport)` is a standalone library
+export, not a third `renderDiff()` format - it needs the HEAD run's
+`Report` for its per-page `error`/`settleDegraded`/`probeBlindRegions`
+section, which a bare `DiffResult` does not carry (only page URL lists,
+not per-page detail), so it doesn't fit `renderReport`/`renderDiff`'s
+uniform `(data, ReportOptions)` shape. Wired to the CLI as `diff --format
+markdown` instead, since the `diff` command already has both `base` and
+`head` loaded off disk. Order, fixed: `gate.reason` first, then
+template-tier counts (a table, filtered to non-empty rows; persisting and
+unknown as one-line counts, unknown broken down by reason so a page-error
+never reads the same as a page-added), then a pages table containing
+ONLY pages that carry a flag - not the full page list, so a summary for a
+real crawl doesn't bury the pages that need a look under dozens of clean
+ones.
+
+`action.yml`: a composite action wrapping the built CLI, not a bundled TS
+action - `npm run build` inside the Action's own steps IS the release
+process, nothing to separately publish or keep in sync. Inputs: `url`,
+`baseline` (default `.a11y/baseline.json`), `max-depth`, `mode`,
+`config`, `allow-engine-drift` (D83). Steps, in order: setup Node, cache
++ install the Action's OWN dependencies (`${{ github.action_path
+}}/node_modules`, keyed on its `package-lock.json` hash), cache + install
+Chromium (`~/.cache/ms-playwright`, same key - D81's exact pin is what
+makes this cache key exact too), build, check the baseline file exists
+BEFORE the slow scan step (a missing baseline fails in seconds, prints
+the exact local `scan --out` command per `01 §11`'s "never writes to the
+repository" rule, never generates one silently), scan, diff (captures its
+own exit code via `set +e; ...; exit $code` so the step's outcome IS
+a11y-ratchet's real exit code - 0/1/3/4/6, never miscategorised as a
+generic failure), then an `if: always()` step that writes
+`$GITHUB_STEP_SUMMARY` from the markdown on success OR from the
+captured error + exit-code-specific guidance when the diff was refused
+outright (3/4/6) and no `DiffResult` exists at all to render.
+`github.action_path` used for every reference to the Action's own
+files/dependencies; caller-relative paths (baseline, config) used
+un-prefixed, so the same `action.yml` is correct both for this repo's own
+demo workflow (`uses: ./`) and for an external consumer
+(`uses: indra-nakka/a11y-ratchet@<ref>`, where the two directories are
+genuinely different on disk).

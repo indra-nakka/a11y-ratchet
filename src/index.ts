@@ -20,6 +20,7 @@ import { renderDiffSummary } from './report/diffSummary.js';
 import { renderReportHtml } from './report/html/render.js';
 import { renderDiffHtml } from './report/html/renderDiff.js';
 import { readReport as readReportFromDisk, toStableJson, writeReport as writeReportToDisk } from './report/json.js';
+import { renderDiffStepSummary as renderDiffStepSummaryImpl } from './report/stepSummary.js';
 import { renderSummary } from './report/summary.js';
 import { runScan } from './scan/run.js';
 import { computeCoverageCounts, WCAG_COVERAGE } from './wcag/coverage.js';
@@ -148,12 +149,18 @@ export function renderReport(report: Report, options: ReportOptions): Promise<st
 }
 
 /**
- * Render a diff as HTML, JSON, or a terminal summary.
+ * Render a diff as HTML or a terminal summary.
  *
  * `format: 'summary'` as of Day 6 (`report/diffSummary.ts`); `'html'` as of
  * Day 11 (`report/html/renderDiff.ts` — dropped from the Day 10 plan row by
- * a bullet-list error, restored here); the CI job-summary markdown is
- * still Day 12, a distinct deliverable from this HTML view.
+ * a bullet-list error, restored here). `'json'` is not implemented here —
+ * `DiffResult` isn't a committed artefact the way a baseline `Report` is,
+ * so there's no stable-key-ordering requirement pulling it in for free;
+ * `JSON.stringify(result, null, 2)` is sufficient and is what `diff
+ * --format json` already does directly. The CI job-summary markdown is
+ * `renderDiffStepSummary()` below, not a format of this function — it
+ * needs the HEAD run's `Report`, not just the `DiffResult`, so it does
+ * not fit this function's two-argument shape.
  */
 export function renderDiff(result: DiffResult, options: ReportOptions): Promise<string> {
   if (options.format === 'summary') {
@@ -163,6 +170,17 @@ export function renderDiff(result: DiffResult, options: ReportOptions): Promise<
     return Promise.resolve(renderDiffHtml(result));
   }
   throw new NotImplementedError(`renderDiff() format "${options.format}"`, 'Day 12');
+}
+
+/**
+ * Render a diff as `$GITHUB_STEP_SUMMARY` markdown (`01 §11`, `03 Part 3.8`,
+ * Day 12) — `gate.reason` first, then template-tier counts, then the HEAD
+ * run's per-page error/settleDegraded/probeBlindRegions flags. Takes the
+ * HEAD `Report` alongside the `DiffResult` because that per-page detail
+ * lives on the report, not the diff. Wired to `diff --format markdown`.
+ */
+export function renderDiffStepSummary(result: DiffResult, headReport: Report): string {
+  return renderDiffStepSummaryImpl(result, headReport);
 }
 
 /** Read a report or baseline from disk, validating its `schemaVersion`. */

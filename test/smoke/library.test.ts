@@ -26,6 +26,7 @@ describe('public library API', () => {
       'exitCodeForScan',
       'renderReport',
       'renderDiff',
+      'renderDiffStepSummary',
       'readReport',
       'writeReport',
       'checkConfig',

@@ -1,0 +1,106 @@
+{
+  "findings": [],
+  "groups": {},
+  "pages": [
+    {
+      "counts": {
+        "bestPractice": 0,
+        "needsReview": 0,
+        "suppressed": 0,
+        "violation": 0
+      },
+      "depth": 0,
+      "durationMs": 221,
+      "httpStatus": 200,
+      "probeBlindRegions": [],
+      "probesRun": true,
+      "settleDegraded": false,
+      "startedAt": "2026-08-20T16:50:53.955Z",
+      "title": "Riverside Robotics Club",
+      "url": "http://127.0.0.1:4173/",
+      "urlTemplate": "/"
+    }
+  ],
+  "run": {
+    "baseUrl": "http://127.0.0.1:4173/",
+    "blockedOrigins": [],
+    "bypassCSP": false,
+    "colorScheme": "light",
+    "concurrency": 3,
+    "configHash": "a5508fc09c585c6e",
+    "deviceScaleFactor": 1,
+    "durationMs": 748,
+    "id": "238c9137-ab54-46b5-82f0-af8802e62bd9",
+    "locale": "en-US",
+    "mode": "ci",
+    "probesEnabled": [
+      "probe/focus-obscured",
+      "probe/keyboard-trap"
+    ],
+    "reducedMotion": "reduce",
+    "settle": {
+      "fontsReadyCapMs": 3000,
+      "imageDecodeCapMs": 1500,
+      "quietCapMs": 2000,
+      "quietMs": 150,
+      "strategy": "default"
+    },
+    "startedAt": "2026-08-20T16:50:53.782Z",
+    "timezoneId": "UTC",
+    "viewport": {
+      "height": 800,
+      "width": 1280
+    }
+  },
+  "schemaVersion": "1.3",
+  "summary": {
+    "findings": {
+      "bestPractice": 0,
+      "byCriterion": {},
+      "byImpact": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      },
+      "byLevel": {
+        "A": 0,
+        "AA": 0,
+        "AAA": 0
+      },
+      "byRule": {},
+      "bySource": {
+        "axe": 0,
+        "probe": 0
+      },
+      "byTier": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0
+      },
+      "needsReview": 0,
+      "suppressed": 0,
+      "total": 0,
+      "violation": 0
+    },
+    "groups": 0,
+    "pages": {
+      "errored": 0,
+      "scanned": 1,
+      "total": 1
+    },
+    "probeBlindRegions": 0,
+    "templateGroups": 0
+  },
+  "templateGroups": {},
+  "tool": {
+    "axeCoreVersion": "4.13.0",
+    "browser": "chromium",
+    "browserVersion": "151.0.7922.34",
+    "name": "a11y-ratchet",
+    "playwrightVersion": "1.62.1",
+    "version": "0.1.0"
+  }
+}

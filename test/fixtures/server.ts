@@ -137,9 +137,14 @@ export async function start(): Promise<string> {
 
     server = instance;
     origin = `http://127.0.0.1:${address.port}`;
+    return origin;
   }
 
-  return origin;
+  // Unreachable: the `while` only exits via the `return` above - TS cannot
+  // see that across the loop's mutable outer-scope `origin`/`server`, so a
+  // trailing throw satisfies the `Promise<string>` return type without a
+  // non-null assertion papering over control flow it can't otherwise prove.
+  throw new Error('unreachable');
 }
 
 /** Release one reference; the server closes when the last one goes. */

@@ -23,69 +23,13 @@ import type {
   FindingPair,
   UnknownFinding,
 } from '../../types.js';
+import {
+  diffGroupInstanceCount as instanceCount,
+  type DiffTemplateGroup,
+  groupFindingsByTemplate as groupByTemplate,
+  groupPairsByTemplate,
+} from '../diffTemplateGroups.js';
 import { criteriaLabel, e, plural, sortByImpactDesc, STYLE } from './shared.js';
-
-/* -------------------------------------------------------------------------- */
-/* Template-tier grouping of one diff bucket                                  */
-/* -------------------------------------------------------------------------- */
-
-interface DiffTemplateGroup {
-  templateKey: string;
-  ruleId: string;
-  bucket: Finding['bucket'];
-  bestPractice: boolean;
-  impact: Finding['impact'];
-  criteria: Finding['criteria'];
-  exampleSelector: string;
-  findings: Finding[];
-  pairs: FindingPair[];
-}
-
-function templateOf(finding: Finding): Pick<DiffTemplateGroup, 'templateKey' | 'ruleId' | 'bucket' | 'bestPractice' | 'impact' | 'criteria' | 'exampleSelector'> {
-  return {
-    templateKey: finding.templateKey,
-    ruleId: finding.ruleId,
-    bucket: finding.bucket,
-    bestPractice: finding.bestPractice,
-    impact: finding.impact,
-    criteria: finding.criteria,
-    exampleSelector: finding.selector,
-  };
-}
-
-function groupByTemplate(findings: readonly Finding[]): DiffTemplateGroup[] {
-  const byKey = new Map<string, DiffTemplateGroup>();
-  for (const finding of findings) {
-    const existing = byKey.get(finding.templateKey);
-    if (existing) {
-      existing.findings.push(finding);
-      if (IMPACT_RANK[finding.impact] < IMPACT_RANK[existing.impact]) existing.impact = finding.impact;
-    } else {
-      byKey.set(finding.templateKey, { ...templateOf(finding), findings: [finding], pairs: [] });
-    }
-  }
-  return [...byKey.values()];
-}
-
-function groupPairsByTemplate(pairs: readonly FindingPair[]): DiffTemplateGroup[] {
-  const byKey = new Map<string, DiffTemplateGroup>();
-  for (const pair of pairs) {
-    const existing = byKey.get(pair.to.templateKey);
-    if (existing) {
-      existing.pairs.push(pair);
-      if (IMPACT_RANK[pair.to.impact] < IMPACT_RANK[existing.impact]) existing.impact = pair.to.impact;
-    } else {
-      byKey.set(pair.to.templateKey, { ...templateOf(pair.to), findings: [], pairs: [pair] });
-    }
-  }
-  return [...byKey.values()];
-}
-
-const IMPACT_RANK: Record<Finding['impact'], number> = { critical: 0, serious: 1, moderate: 2, minor: 3 };
-
-function instanceCount(group: DiffTemplateGroup): number {
-  return group.findings.length + group.pairs.length;
-}
 
 /* -------------------------------------------------------------------------- */
 /* Rendering one template group, either as flat findings or as pairs         */

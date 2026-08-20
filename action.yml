@@ -1,0 +1,194 @@
+name: 'a11y-ratchet'
+description: >-
+  Crawl a site, scan it with axe-core plus keyboard-interaction probes, and
+  diff the result against a committed baseline so CI can fail a PR on new
+  accessibility violations.
+author: 'Indra D Nakka'
+branding:
+  icon: 'check-square'
+  color: 'purple'
+
+# A composite action wrapping the CLI, not a bundled TS action - one Action
+# means one thing to maintain (npm run build here IS the whole "release"),
+# and every step below is a real `npx a11y-ratchet` invocation you could
+# paste into your own terminal and run identically (01 §11, 03 Part 3.8).
+
+inputs:
+  url:
+    description: 'Base URL to crawl.'
+    required: true
+  baseline:
+    description: >-
+      Path to the committed baseline, relative to the repository root
+      (01 §11). a11y-ratchet never writes this file in CI - it is generated
+      and committed locally, the same way you would commit a fix.
+    required: false
+    default: '.a11y/baseline.json'
+  max-depth:
+    description: 'BFS crawl depth.'
+    required: false
+    default: '2'
+  mode:
+    description: >-
+      `ci` (default) blocks third-party requests for diff stability; `audit`
+      allows them so the focus probe can see real overlays, at the cost of
+      determinism between runs.
+    required: false
+    default: 'ci'
+  config:
+    description: >-
+      Path to a11y-ratchet.config.{ts,js,json}, relative to the repository
+      root. Omit to auto-discover a11y-ratchet.config.* there.
+    required: false
+  allow-engine-drift:
+    description: >-
+      Permit diffing across axe-core versions. Without this, a baseline
+      scanned with a different axe-core version than this run refuses the
+      diff (exit 4) rather than risk phantom regressions from a tightened
+      rule. A PR that legitimately bumps axe-core should regenerate the
+      baseline in the same PR (see "Baseline workflow" in the README)
+      instead of setting this permanently - it banners the report every
+      time it's used, on purpose.
+    required: false
+    default: 'false'
+
+outputs:
+  exit-code:
+    description: >-
+      The a11y-ratchet exit code for this run - 0 pass, 1 gate failed
+      (new violations), 3 tool error, 4 engine drift, 6 incompatible run
+      configuration. Never 5 here (the absolute --fail-on threshold has no
+      input in this Action; it is a baseline-less gate this composite
+      doesn't use).
+    value: ${{ steps.diff.outputs.exit-code }}
+  gate-passed:
+    description: '"true" if the gate passed, "false" otherwise.'
+    value: ${{ steps.diff.outputs.gate-passed }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Cache a11y-ratchet's own dependencies
+      uses: actions/cache@v4
+      with:
+        path: ${{ github.action_path }}/node_modules
+        key: a11y-ratchet-deps-${{ runner.os }}-${{ hashFiles(format('{0}/package-lock.json', github.action_path)) }}
+
+    - name: Install a11y-ratchet
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm ci
+
+    # The slowest step by an order of magnitude without this cache - a
+    # Chromium download, not an npm install. Keyed on the lockfile hash so
+    # it invalidates itself the moment `playwright`'s pinned version (an
+    # exact version, not a range - a Chromium bump can shift contrast
+    # results at the margins) actually changes, and never otherwise.
+    - name: Cache the Playwright browser download
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-chromium-${{ runner.os }}-${{ hashFiles(format('{0}/package-lock.json', github.action_path)) }}
+
+    - name: Install Chromium
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npx playwright install --with-deps chromium
+
+    - name: Build a11y-ratchet
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm run build
+
+    # Checked before the (slow) scan runs, not after - a missing baseline
+    # fails in seconds, not minutes. The Action never writes to the repo
+    # (01 §11): it prints the exact local command instead of generating one.
+    - name: Check the baseline exists
+      shell: bash
+      run: |
+        if [ ! -f "${{ inputs.baseline }}" ]; then
+          echo "::error::No baseline at ${{ inputs.baseline }}. a11y-ratchet never writes to the repository - generate one locally and commit it:"
+          echo "::error::  npx a11y-ratchet scan ${{ inputs.url }} --max-depth ${{ inputs.max-depth }} --mode ${{ inputs.mode }} --out ${{ inputs.baseline }}"
+          exit 3
+        fi
+      working-directory: ${{ github.workspace }}
+
+    - name: Scan
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        node "${{ github.action_path }}/dist/cli/index.js" scan "${{ inputs.url }}" \
+          --max-depth "${{ inputs.max-depth }}" \
+          --mode "${{ inputs.mode }}" \
+          ${{ inputs.config && format('--config "{0}"', inputs.config) || '' }} \
+          --out "$RUNNER_TEMP/a11y-ratchet-head.json" \
+          --html "$RUNNER_TEMP/a11y-ratchet-report.html" \
+          --quiet
+
+    # Exit codes surfaced faithfully: this step's own exit code IS
+    # a11y-ratchet's exit code (0/1/3/4/6 - `01 §10`), captured before the
+    # `set +e` early-return so a tool error never gets mistaken for a
+    # passed gate. `--format markdown` and `--quiet` (below) both go to
+    # stdout; separated into two files so a refused diff (exit 3/4/6, no
+    # DiffResult at all) doesn't leave a stale markdown file from a
+    # previous step behind for the summary step to pick up by accident.
+    - name: Diff against baseline
+      id: diff
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        set +e
+        rm -f "$RUNNER_TEMP/a11y-ratchet-summary.md"
+        node "${{ github.action_path }}/dist/cli/index.js" diff \
+          "${{ inputs.baseline }}" "$RUNNER_TEMP/a11y-ratchet-head.json" \
+          ${{ inputs.allow-engine-drift == 'true' && '--allow-engine-drift' || '' }} \
+          --html "$RUNNER_TEMP/a11y-ratchet-diff.html" \
+          --out "$RUNNER_TEMP/a11y-ratchet-diff.json" \
+          --format markdown \
+          > "$RUNNER_TEMP/a11y-ratchet-summary.md" 2> "$RUNNER_TEMP/a11y-ratchet-diff.err"
+        code=$?
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        if [ "$code" -eq 0 ]; then echo "gate-passed=true" >> "$GITHUB_OUTPUT"; else echo "gate-passed=false" >> "$GITHUB_OUTPUT"; fi
+        cat "$RUNNER_TEMP/a11y-ratchet-diff.err" >&2
+        exit $code
+
+    # Runs whether the diff step passed, gated, or was refused outright -
+    # a job that fails because the browser wouldn't launch (exit 3) or hit
+    # engine drift (exit 4) or incompatible run config (exit 6, no
+    # override - `02 §... ` incompatibleRunConfig) still gets a summary
+    # explaining WHY, not just a red X and a wall of stack trace.
+    - name: Write job summary
+      if: always() && steps.diff.outcome != 'skipped'
+      shell: bash
+      run: |
+        code="${{ steps.diff.outputs.exit-code }}"
+        if [ -s "$RUNNER_TEMP/a11y-ratchet-summary.md" ]; then
+          cat "$RUNNER_TEMP/a11y-ratchet-summary.md" >> "$GITHUB_STEP_SUMMARY"
+        else
+          {
+            echo "## a11y-ratchet: diff could not complete (exit $code)"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/a11y-ratchet-diff.err" 2>/dev/null || echo '(no error output captured)'
+            echo '```'
+            case "$code" in
+              4)
+                echo
+                echo 'axe-core version differs between the baseline and this run. If this PR intentionally bumps axe-core, regenerate the baseline in the same PR (`npx a11y-ratchet baseline regenerate ...`, see "Baseline workflow" in the README) rather than setting `allow-engine-drift: true` permanently.'
+                ;;
+              6)
+                echo
+                echo 'Base and head runs used incompatible settings (mode, viewport, locale, colour scheme, or bypass-csp) - there is no override for this, by design. Align the inputs above with whatever generated the committed baseline, or regenerate the baseline under the current settings.'
+                ;;
+              3)
+                echo
+                echo 'Tool error, not a site regression - see the log above (browser launch failure, unreachable URL, or an unreadable baseline).'
+                ;;
+            esac
+          } >> "$GITHUB_STEP_SUMMARY"
+        fi

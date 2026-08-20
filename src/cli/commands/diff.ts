@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 import { Command } from 'commander';
 
-import { diff, exitCodeForDiff, readReport, renderDiff } from '../../index.js';
+import { diff, exitCodeForDiff, readReport, renderDiff, renderDiffStepSummary } from '../../index.js';
 import { run } from '../runtime.js';
 import type { NewPagePolicy } from '../../types.js';
 
@@ -10,7 +10,7 @@ interface DiffCommandOptions {
   matchThreshold: string;
   exactOnly?: boolean;
   newPagePolicy: NewPagePolicy;
-  format: 'summary' | 'json';
+  format: 'summary' | 'json' | 'markdown';
   out?: string;
   html?: string;
   quiet?: boolean;
@@ -33,7 +33,7 @@ export function diffCommand(): Command {
     .option('--exact-only', 'skip fuzzy matching; unmatched findings become unclassified, never new')
     .option('--new-page-policy <policy>', 'fail, warn or ignore findings on pages only in head', 'warn')
 
-    .option('--format <format>', 'summary or json (the CI job-summary markdown is a later day)', 'summary')
+    .option('--format <format>', 'summary, json or markdown ($GITHUB_STEP_SUMMARY shape)', 'summary')
     .option('--out <path>', 'write the diff result JSON here')
     .option('--html <path>', 'write a self-contained diff HTML view here')
     .option('--quiet', 'print only the gate reason')
@@ -83,6 +83,8 @@ Notes:
           console.log(result.gate.reason);
         } else if (options.format === 'json') {
           console.log(JSON.stringify(result, null, 2));
+        } else if (options.format === 'markdown') {
+          console.log(renderDiffStepSummary(result, head));
         } else {
           console.log(await renderDiff(result, { format: 'summary' }));
         }

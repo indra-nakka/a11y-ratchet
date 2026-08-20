@@ -43,6 +43,7 @@ const EXPECTED_EXPORTS = [
   'exitCodeForScan',
   'renderReport',
   'renderDiff',
+  'renderDiffStepSummary',
   'readReport',
   'writeReport',
   'checkConfig',
