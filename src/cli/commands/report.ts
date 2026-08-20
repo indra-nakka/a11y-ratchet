@@ -1,7 +1,16 @@
+import { readFile, writeFile } from 'node:fs/promises';
 import { Command } from 'commander';
 
-import { readReport, renderReport } from '../../index.js';
+import { readReport, renderDiff, renderReport } from '../../index.js';
 import { run } from '../runtime.js';
+import type { DiffResult, ReportFormat } from '../../types.js';
+
+interface ReportCliOptions {
+  format: ReportFormat;
+  out?: string;
+  ungrouped?: boolean;
+  diff?: string;
+}
 
 /**
  * `report` — render an existing report JSON as HTML or a terminal summary.
@@ -31,10 +40,35 @@ Notes:
 `,
     )
 
-    .action((reportPath: string) =>
+    .action((reportPath: string, options: ReportCliOptions) =>
       run(async () => {
         const report = await readReport(reportPath);
-        await renderReport(report, { format: 'html' });
+        const output = await renderReport(report, {
+          format: options.format,
+          ...(options.ungrouped !== undefined ? { ungrouped: options.ungrouped } : {}),
+        });
+
+        if (options.out) {
+          await writeFile(options.out, output, 'utf8');
+        } else {
+          console.log(output);
+        }
+
+        if (options.diff) {
+          // A DiffResult, not a Report - readReport() validates the Report
+          // schemaVersion specifically, so this reads the file directly
+          // rather than reusing it for a shape it doesn't fit.
+          const diffResult = JSON.parse(await readFile(options.diff, 'utf8')) as DiffResult;
+          const diffOutput = await renderDiff(diffResult, { format: options.format === 'json' ? 'summary' : options.format });
+
+          if (options.out) {
+            const diffPath = options.out.replace(/(\.[^./\\]+)?$/, (ext) => `.diff${ext}`);
+            await writeFile(diffPath, diffOutput, 'utf8');
+          } else {
+            console.log('\n--- diff ---\n');
+            console.log(diffOutput);
+          }
+        }
       }),
     );
 }
