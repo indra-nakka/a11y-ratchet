@@ -1,0 +1,109 @@
+#	ruleId	bucket	impact	SC	instances	pages	exampleUrl	selector	accessibleName	stratum	verdict
+1	color-contrast	needs-review	serious	1.4.3	305	17	https://vuejs.org/examples/	a[href$="examples/#hello-world"] > .link-text	hello world	A	
+2	color-contrast	violation	serious	1.4.3	278	2	https://vuejs.org/about/team.html	.member[data-v-481123ff=""]:nth-child(1) > article > .data > .profiles > .desc:nth-child(1) > .desc-list > .desc-item:nth-child(1) > .desc-link[href$="vuejs"][rel="noopener noreferrer"]	vuejs/*	A	
+3	link-name	violation	serious	2.4.4, 4.1.2	268	2	https://vuejs.org/about/team.html	a[href="https://github.com/yyx990803"]		A	
+4	color-contrast	violation	serious	1.4.3	237	29	https://vuejs.org/guide/introduction.html	.outline-link[href$="#what-is-vue"][data-v-cb6b0d48=""]	what is vue?	A	
+5	color-contrast	violation	serious	1.4.3	224	28	https://vuejs.org/guide/introduction.html	p:nth-child(21) > a	ways of using vue	A	
+6	color-contrast	violation	serious	1.4.3	152	2	https://vuejs.org/ecosystem/themes.html	.item[data-v-7b2ff495=""]:nth-child(1) > section > .container[data-v-e0de31f6=""] > .products[data-v-e0de31f6=""] > .product[data-v-e0de31f6=""]:nth-child(1) > .ThemeProduct.vt-link[rel="noopener noreferrer"] > article > .data > .title > .description	vue dashboard template with multi-column layout and charts.	A	
+7	color-contrast	violation	serious	1.4.3	140	2	https://vuejs.org/about/team.html	.TeamList[data-v-849936c2=""][data-v-481123ff=""]:nth-child(2) > .container[data-v-481123ff=""] > .members[data-v-481123ff=""] > .member[data-v-481123ff=""]:nth-child(1) > article > .data > .org	creator @ vue.js	A	
+8	color-contrast	violation	serious	1.4.3	130	10	https://vuejs.org/guide/quick-start.html	a[href$="code.visualstudio.com/"]	visual studio code	A	
+9	color-contrast	violation	serious	1.4.3	121	15	https://vuejs.org/guide/introduction.html	.language-template > .lang	template	A	
+10	color-contrast	needs-review	serious	1.4.3	113	30	https://vuejs.org/	.VPNavBarMenuGroup.vt-flyout[data-v-4ba22f22=""]:nth-child(2) > .vt-flyout-button[aria-haspopup="true"] > .vt-flyout-button-text	docs	A	
+11	color-contrast	violation	serious	1.4.3	95	10	https://vuejs.org/guide/introduction.html	.language-vue:nth-child(32) > pre > code > .line:nth-child(3) > span	// properties returned from data() become reactive state	A	
+12	color-contrast	needs-review	serious	1.4.3	78	39	https://vuejs.org/	kbd:nth-child(1)	ctrl	A	
+13	target-size	violation	serious	2.5.8	66	2	https://vuejs.org/about/team.html	.TeamList[data-v-849936c2=""][data-v-481123ff=""]:nth-child(2) > .container[data-v-481123ff=""] > .members[data-v-481123ff=""] > .member[data-v-481123ff=""]:nth-child(3) > article > .data > .profiles > .desc:nth-child(1) > .desc-list > .desc-item:nth-child(1) > .desc-link.vt-link[rel="noopener noreferrer"]	vue-devtools	A	
+14	color-contrast	violation	serious	1.4.3	65	13	https://vuejs.org/guide/introduction.html	.composition-api:nth-child(9) > .language-js > .lang	js	A	
+15	link-in-text-block	violation	serious	1.4.1	64	2	https://vuejs.org/about/team.html	a[href$="livestorm.co/"]	livestorm	A	
+16	color-contrast	violation	serious	1.4.3	60	30	https://vuejs.org/guide/introduction.html	a[href$="sponsor/#tier-benefits"]	inquire about special sponsorship	A	
+17	color-contrast	violation	serious	1.4.3	52	11	https://vuejs.org/guide/introduction.html	p:nth-child(2) > a[rel="noreferrer"][target="_blank"]:nth-child(1)	javascript	A	
+18	color-contrast	violation	serious	1.4.3	48	12	https://vuejs.org/guide/scaling-up/tooling.html	.prev-link > .desc[data-v-60356174=""]	previous	A	
+19	color-contrast	violation	serious	1.4.3	45	6	https://vuejs.org/about/releases.html	.outline-link[href$="#typescript-definitions"][data-v-cb6b0d48=""]	typescript definitions	A	
+20	color-contrast	violation	serious	1.4.3	44	2	https://vuejs.org/about/team.html	a[href$="evanyou.me"]	evanyou.me	A	
+21	color-contrast	violation	serious	1.4.3	42	2	https://vuejs.org/about/team.html	.member[data-v-481123ff=""]:nth-child(1) > article > .sponsor.vt-link[rel="noopener noreferrer"]	sponsor	A	
+22	color-contrast	needs-review	serious	1.4.3	40	40	https://vuejs.org/	.DocSearch-Button-Placeholder	search	A	
+23	color-contrast	violation	serious	1.4.3	35	4	https://vuejs.org/guide/essentials/computed.html	.composition-api:nth-child(14) > .language-vue > pre > code > .line:nth-child(13) > span	// a computed ref	A	
+24	color-contrast	needs-review	serious	1.4.3	34	17	https://vuejs.org/examples/	p[data-v-9e2c957b=""]:nth-child(1)	api style now defaults to composition api.	A	
+25	color-contrast	needs-review	serious	1.4.3	33	17	https://vuejs.org/examples/	.group[data-v-1609d3f6=""]:nth-child(3) > section > .title[data-v-ce5d6371=""] > h2	basic	A	
+26	color-contrast	violation	serious	1.4.3	32	7	https://vuejs.org/guide/quick-start.html	li:nth-child(1) > p > a[rel="noreferrer"][target="_blank"]	playground	A	
+27	color-contrast	violation	serious	1.4.3	32	31	https://vuejs.org/	#vuemastery-action	play icon why vue	A	
+28	color-contrast	violation	serious	1.4.3	30	30	https://vuejs.org/guide/introduction.html	.sponsors-aside-text	sponsors	A	
+29	color-contrast	violation	serious	1.4.3	28	1	https://vuejs.org/api/	.api-section:nth-child(2) > .api-groups > .api-group:nth-child(1) > h3	application	A	
+30	link-in-text-block	violation	serious	1.4.1	26	2	https://vuejs.org/ecosystem/themes.html	.link[href$="ui.nuxt.com/"][rel="noopener"]	nuxt ui	A	
+31	color-contrast	violation	serious	1.4.3	26	2	https://vuejs.org/ecosystem/themes.html	.link[href$="ui.nuxt.com/"][rel="noopener"]	nuxt ui	A	
+32	color-contrast	needs-review	serious	1.4.3	24	24	https://vuejs.org/	.text	vue.js	A	
+33	color-contrast	needs-review	serious	1.4.3	24	24	https://vuejs.org/	.VPNavBarMenuLink	playground	A	
+34	frame-title	violation	serious	4.1.2	24	24	https://vuejs.org/	iframe		A	
+35	color-contrast	violation	serious	1.4.3	24	4	https://vuejs.org/guide/introduction.html	.vt-box[href$="tutorial/"] > .next-steps-link	try the tutorial	A	
+36	color-contrast	needs-review	serious	1.4.3	21	2	https://vuejs.org/tutorial/	div:nth-child(1) > .CodeMirror-gutter-wrapper[aria-hidden="true"] > .CodeMirror-linenumber.CodeMirror-gutter-elt		A	
+37	color-contrast	violation	serious	1.4.3	19	17	https://vuejs.org/examples/	.options-label	options	A	
+38	color-contrast	violation	serious	1.4.3	19	10	https://vuejs.org/guide/introduction.html	a[href$="sfc-script-setup"] > code	<script setup>	A	
+39	color-contrast	violation	serious	1.4.3	18	2	https://vuejs.org/ecosystem/themes.html	.item[data-v-7b2ff495=""]:nth-child(1) > section > .description	nuxt ui is an open-source ui library with #+ accessible, tailwind css components	A	
+40	color-contrast	violation	serious	1.4.3	18	2	https://vuejs.org/ecosystem/themes.html	.action-link[href$="ui.nuxt.com/"][rel="noopener noreferrer"]	see more themes from nuxt ui	A	
+41	color-contrast	violation	serious	1.4.3	17	17	https://vuejs.org/examples/	a[href$="introduction#api-styles"][data-v-9e2c957b=""]	learn more	A	
+42	color-contrast	violation	serious	1.4.3	17	17	https://vuejs.org/examples/	button[data-v-9e2c957b=""]	got it	A	
+43	color-contrast	violation	serious	1.4.3	11	1	https://vuejs.org/examples/	div:nth-child(2) > .CodeMirror-line > span[role="presentation"] > .cm-comment	say hello world with vue!	A	
+44	color-contrast	violation	serious	1.4.3	10	3	https://vuejs.org/about/privacy.html	li:nth-child(1) > ul > li > a[rel="noreferrer"][target="_blank"]	https://usefathom.com/legal/privacy	A	
+45	color-contrast	violation	serious	1.4.3	10	5	https://vuejs.org/	.license	released under the mit license.	A	
+46	color-contrast	violation	serious	1.4.3	10	4	https://vuejs.org/guide/quick-start.html	a[rel="noreferrer"][target="_blank"]:nth-child(1) > code	vuejs/petite-vue	A	
+47	color-contrast	violation	serious	1.4.3	9	3	https://vuejs.org/guide/quick-start.html	.vp-code-group:nth-child(9) > .blocks > .active.language-sh > .lang	sh		
+48	color-contrast	violation	serious	1.4.3	8	5	https://vuejs.org/guide/introduction.html	a[href$="eol/"]	vue # eol	B	
+49	color-contrast	violation	serious	1.4.3	8	2	https://vuejs.org/error-reference/	li:nth-child(1) > a > code	app.config.errorhandler		
+50	color-contrast	violation	serious	1.4.3	7	3	https://vuejs.org/guide/scaling-up/tooling.html	ol > li:nth-child(1) > p > a[rel="noreferrer"][target="_blank"]	configuration guide		
+51	color-contrast	violation	serious	1.4.3	7	1	https://vuejs.org/guide/essentials/reactivity-fundamentals.html	li:nth-child(2) > .language-js > pre > code > .line:nth-child(3) > span	// the above reference ({ count: # }) is no longer being tracked		
+52	color-contrast	violation	serious	1.4.3	7	7	https://vuejs.org/glossary/	blockquote > p	this entry is about the use of ref for reactivity. for the ref attribute used in		
+53	color-contrast	violation	serious	1.4.3	6	2	https://vuejs.org/about/team.html	.TeamList[data-v-849936c2=""][data-v-481123ff=""]:nth-child(2) > .container[data-v-481123ff=""] > .info[data-v-481123ff=""] > .lead	core team members are those who are actively involved in the maintenance of one 	B	
+54	color-contrast	violation	serious	1.4.3	5	5	https://vuejs.org/ecosystem/themes.html	.lead	check out the themes, ui kits, and plugins. you can see how a real-world applica	B	
+55	link-in-text-block	violation	serious	1.4.1	5	5	https://vuejs.org/	.vt-link[data-v-14930d23=""][rel="noopener noreferrer"]	mit license		
+56	color-contrast	violation	serious	1.4.3	3	1	https://vuejs.org/examples/	.label	app.vue	B	
+57	color-contrast	violation	serious	1.4.3	3	1	https://vuejs.org/	.vt-box[data-v-7d4b747f=""]:nth-child(1) > p	a rich, incrementally adoptable ecosystem that scales between a library and a fu		
+58	color-contrast	needs-review	serious	1.4.3	3	1	https://vuejs.org/tutorial/	p:nth-child(7)	you can edit the code on the right and see the result update instantly. each ste		
+59	color-contrast	violation	serious	1.4.3	3	3	https://vuejs.org/guide/quick-start.html	a[href$="composition-api-setup"] > code	setup()		
+60	select-name	violation	critical	4.1.2	3	1	https://vuejs.org/guide/essentials/forms.html	.demo:nth-child(49) > select		B	
+61	color-contrast	violation	serious	1.4.3	3	3	https://vuejs.org/partners/	p > .link[target="_blank"]	register your interest here		
+62	color-contrast	violation	serious	1.4.3	3	3	https://vuejs.org/glossary/	blockquote > p > a[href$="#template-ref"]	template ref	B	
+63	color-contrast	violation	serious	1.4.3	3	2	https://vuejs.org/tutorial/	div:nth-child(2) > .CodeMirror-line > span[role="presentation"]	<h#>hello world!</h#>		
+64	color-contrast	violation	serious	1.4.3	3	1	https://vuejs.org/guide/scaling-up/tooling.html	li:nth-child(3) > ul > li:nth-child(1) > p > a[rel="noreferrer"][target="_blank"]	lsp-volar		
+65	color-contrast	violation	serious	1.4.3	2	2	https://vuejs.org/guide/introduction.html	.description > span	vuemastery.com		
+66	scrollable-region-focusable	violation	serious	2.1.1, 2.1.3	2	2	https://vuejs.org/guide/quick-start.html	.vt-doc > div > .language-sh > pre	✔ project name: … <your-project-name> ✔ add typescript? … no / yes ✔ add jsx sup		
+67	color-contrast	violation	serious	1.4.3	2	2	https://vuejs.org/about/team.html	.nowrap[data-v-849936c2=""]	featured below.		
+68	probe/keyboard-trap	needs-review	critical	2.1.2	2	2	https://vuejs.org/tutorial/	textarea		B	
+69	color-contrast	violation	serious	1.4.3	2	2	https://vuejs.org/guide/quick-start.html	span:nth-child(2) > span > span:nth-child(2)	your-project-name		
+70	color-contrast	violation	serious	1.4.3	2	1	https://vuejs.org/guide/essentials/reactivity-fundamentals.html	li:nth-child(1) > p > a[rel="noreferrer"][target="_blank"]:nth-child(2)	collection types	B	
+71	color-contrast	violation	serious	1.4.3	2	2	https://vuejs.org/ecosystem/themes.html	.text[data-v-83de55b1=""] > .link	contact us!		
+72	color-contrast	violation	serious	1.4.3	2	1	https://vuejs.org/guide/essentials/reactivity-fundamentals.html	li:nth-child(2) > .language-js > .lang	js		
+73	color-contrast	violation	serious	1.4.3	2	1	https://vuejs.org/tutorial/	.wrapper[data-v-145d5330=""][data-v-17ef6099=""]:nth-child(1) > span[data-v-17ef6099=""]	show error		
+74	color-contrast	violation	serious	1.4.3	2	1	https://vuejs.org/sponsor/	a[href$="core"] > code	vuejs/core		
+75	color-contrast	violation	serious	1.4.3	2	1	https://vuejs.org/	.platinum > .action.spsr-item[href$="sponsor/"]	become a sponsor		
+76	color-contrast	violation	serious	1.4.3	2	1	https://vuejs.org/guide/essentials/reactivity-fundamentals.html	.composition-api:nth-child(5) > blockquote > p	see also: typing refs		
+77	listitem	violation	serious	1.3.1	2	1	https://vuejs.org/guide/essentials/list.html	.demo > li:nth-child(1)	parent - # - foo		
+78	label	violation	critical	4.1.2	2	2	https://vuejs.org/tutorial/	textarea		B	
+79	color-contrast	violation	serious	1.4.3	2	1	https://vuejs.org/tutorial/	.options-label	options		
+80	color-contrast	violation	serious	1.4.3	2	1	https://vuejs.org/guide/essentials/reactivity-fundamentals.html	.composition-api:nth-child(5) > blockquote > p > a	typing refs		
+81	color-contrast	violation	serious	1.4.3	2	2	https://vuejs.org/guide/quick-start.html	a[href$="composition-api-setup"]	setup() option	B	
+82	color-contrast	violation	serious	1.4.3	1	1	https://vuejs.org/tutorial/	span[data-v-d8257147=""]	preview		
+83	color-contrast	violation	serious	1.4.3	1	1	https://vuejs.org/guide/scaling-up/tooling.html	p:nth-child(2) > a[rel="noreferrer"][target="_blank"]	vetur		
+84	color-contrast	needs-review	serious	1.4.3	1	1	https://vuejs.org/tutorial/	.next-step	next		
+85	color-contrast	violation	serious	1.4.3	1	1	https://vuejs.org/tutorial/	a[href$="introduction.html"][target="_blank"]	guide	B	
+86	color-contrast	violation	serious	1.4.3	1	1	https://vuejs.org/guide/essentials/template-syntax.html	p:nth-child(2) > span > span	this should be red.	B	
+87	color-contrast	violation	serious	1.4.3	1	1	https://vuejs.org/	.description	an approachable, performant and versatile framework for building web user interf		
+88	color-contrast	needs-review	serious	1.4.3	1	1	https://vuejs.org/guide/essentials/forms.html	select[multiple=""]			
+89	color-contrast	violation	serious	1.4.3	1	1	https://vuejs.org/guide/essentials/forms.html	textarea	add multiple lines	B	
+90	color-contrast	violation	serious	1.4.3	1	1	https://vuejs.org/tutorial/	.label	app.vue		
+91	color-contrast	violation	serious	1.4.3	1	1	https://vuejs.org/partners/	.cta-description	generate leads for new projects, boost your credibility to your clients, and sup		
+92	link-in-text-block	violation	serious	1.4.1	1	1	https://vuejs.org/partners/	p > .link[target="_blank"]	register your interest here		
+93	color-contrast	violation	serious	1.4.3	1	1	https://vuejs.org/sponsor/	.spsr-item	inquire about special sponsorship		
+94	color-contrast	violation	serious	1.4.3	1	1	https://vuejs.org/tutorial/	span[data-v-e02760d0=""]	api preference	B	
+95	color-contrast	violation	serious	1.4.3	1	1	https://vuejs.org/partners/	.spotlight-content > .section-title	partner spotlight		
+96	color-contrast	needs-review	serious	1.4.3	1	1	https://vuejs.org/	.accent	progressive	B	
+97	color-contrast	violation	serious	1.4.3	1	1	https://vuejs.org/guide/scaling-up/tooling.html	li:nth-child(2) > p > a[rel="noreferrer"][target="_blank"] > code	vue-tsc		
+98	color-contrast	violation	serious	1.4.3	1	1	https://vuejs.org/guide/essentials/forms.html	.composition-api > a	reactivity apis		
+99	color-contrast	violation	serious	1.4.3	1	1	https://vuejs.org/sponsor/	span > a[rel="noreferrer"][target="_blank"]	get in touch		
+100	frame-title	violation	serious	4.1.2	1	1	https://vuejs.org/tutorial/	.iframe-container > iframe			
+101	color-contrast	violation	serious	1.4.3	1	1	https://vuejs.org/api/	#api-filter	filter		
+102	color-contrast	violation	serious	1.4.3	1	1	https://vuejs.org/examples/	span[data-v-d8257147=""]	preview		
+103	color-contrast	violation	serious	1.4.3	1	1	https://vuejs.org/	a[href$="sponsor/#tier-benefits"]	special sponsor slot is now vacant - inquire now		
+104	color-contrast	needs-review	serious	1.4.3	1	1	https://vuejs.org/tutorial/	summary	tutorial setting details		
+105	frame-title	violation	serious	4.1.2	1	1	https://vuejs.org/examples/	.iframe-container > iframe			
+106	color-contrast	violation	serious	1.4.3	1	1	https://vuejs.org/guide/essentials/forms.html	input[placeholder="edit me"]	edit me		
+107	color-contrast	violation	serious	1.4.3	1	1	https://vuejs.org/partners/	.showcase-layout__featured > .section-title	featured partners		
+108	color-contrast	violation	serious	1.4.3	1	1	https://vuejs.org/partners/	.accent-button	browse all partners		

@@ -1,0 +1,268 @@
+{
+  "findings": [],
+  "groups": {},
+  "pages": [
+    {
+      "counts": {
+        "bestPractice": 0,
+        "needsReview": 0,
+        "suppressed": 0,
+        "violation": 0
+      },
+      "depth": 0,
+      "durationMs": 369,
+      "httpStatus": 200,
+      "probeBlindRegions": [],
+      "probesRun": true,
+      "settleDegraded": false,
+      "startedAt": "2026-08-20T18:09:14.178Z",
+      "title": "Welcome to GOV.UK",
+      "url": "https://www.gov.uk/",
+      "urlTemplate": "/"
+    },
+    {
+      "counts": {
+        "bestPractice": 0,
+        "needsReview": 0,
+        "suppressed": 0,
+        "violation": 0
+      },
+      "depth": 1,
+      "durationMs": 1302,
+      "httpStatus": 200,
+      "probeBlindRegions": [],
+      "probesRun": true,
+      "settleDegraded": false,
+      "startedAt": "2026-08-20T18:09:19.816Z",
+      "title": "Cookies on GOV.UK - GOV.UK",
+      "url": "https://www.gov.uk/help/cookies",
+      "urlTemplate": "/help/cookies"
+    },
+    {
+      "counts": {
+        "bestPractice": 0,
+        "needsReview": 0,
+        "suppressed": 0,
+        "violation": 0
+      },
+      "depth": 1,
+      "durationMs": 587,
+      "httpStatus": 200,
+      "probeBlindRegions": [],
+      "probesRun": true,
+      "settleDegraded": false,
+      "startedAt": "2026-08-20T18:09:20.299Z",
+      "title": "Benefits - GOV.UK",
+      "url": "https://www.gov.uk/browse/benefits",
+      "urlTemplate": "/browse/benefits"
+    },
+    {
+      "counts": {
+        "bestPractice": 0,
+        "needsReview": 0,
+        "suppressed": 0,
+        "violation": 0
+      },
+      "depth": 1,
+      "durationMs": 1106,
+      "httpStatus": 200,
+      "probeBlindRegions": [],
+      "probesRun": true,
+      "settleDegraded": false,
+      "startedAt": "2026-08-20T18:09:20.061Z",
+      "title": "Services and information - GOV.UK",
+      "url": "https://www.gov.uk/browse",
+      "urlTemplate": "/browse"
+    },
+    {
+      "counts": {
+        "bestPractice": 0,
+        "needsReview": 0,
+        "suppressed": 0,
+        "violation": 0
+      },
+      "depth": 1,
+      "durationMs": 1237,
+      "httpStatus": 200,
+      "probeBlindRegions": [],
+      "probesRun": true,
+      "settleDegraded": false,
+      "startedAt": "2026-08-20T18:09:24.082Z",
+      "title": "Births, deaths, marriages and care - GOV.UK",
+      "url": "https://www.gov.uk/browse/births-deaths-marriages",
+      "urlTemplate": "/browse/births-deaths-marriages"
+    },
+    {
+      "counts": {
+        "bestPractice": 0,
+        "needsReview": 0,
+        "suppressed": 0,
+        "violation": 0
+      },
+      "depth": 1,
+      "durationMs": 453,
+      "httpStatus": 200,
+      "probeBlindRegions": [],
+      "probesRun": true,
+      "settleDegraded": false,
+      "startedAt": "2026-08-20T18:09:24.835Z",
+      "title": "Childcare and parenting - GOV.UK",
+      "url": "https://www.gov.uk/browse/childcare-parenting",
+      "urlTemplate": "/browse/childcare-parenting"
+    },
+    {
+      "counts": {
+        "bestPractice": 0,
+        "needsReview": 0,
+        "suppressed": 0,
+        "violation": 0
+      },
+      "depth": 1,
+      "durationMs": 1174,
+      "httpStatus": 200,
+      "probeBlindRegions": [],
+      "probesRun": true,
+      "settleDegraded": false,
+      "startedAt": "2026-08-20T18:09:24.332Z",
+      "title": "Business and self-employed - GOV.UK",
+      "url": "https://www.gov.uk/browse/business",
+      "urlTemplate": "/browse/business"
+    },
+    {
+      "counts": {
+        "bestPractice": 0,
+        "needsReview": 0,
+        "suppressed": 0,
+        "violation": 0
+      },
+      "depth": 1,
+      "durationMs": 446,
+      "httpStatus": 200,
+      "probeBlindRegions": [],
+      "probesRun": true,
+      "settleDegraded": false,
+      "startedAt": "2026-08-20T18:09:28.604Z",
+      "title": "Citizenship and living in the UK - GOV.UK",
+      "url": "https://www.gov.uk/browse/citizenship",
+      "urlTemplate": "/browse/citizenship"
+    },
+    {
+      "counts": {
+        "bestPractice": 0,
+        "needsReview": 0,
+        "suppressed": 0,
+        "violation": 0
+      },
+      "depth": 1,
+      "durationMs": 1211,
+      "httpStatus": 200,
+      "probeBlindRegions": [],
+      "probesRun": true,
+      "settleDegraded": false,
+      "startedAt": "2026-08-20T18:09:28.855Z",
+      "title": "Crime, justice and the law - GOV.UK",
+      "url": "https://www.gov.uk/browse/justice",
+      "urlTemplate": "/browse/justice"
+    },
+    {
+      "counts": {
+        "bestPractice": 0,
+        "needsReview": 0,
+        "suppressed": 0,
+        "violation": 0
+      },
+      "depth": 1,
+      "durationMs": 1202,
+      "httpStatus": 200,
+      "probeBlindRegions": [],
+      "probesRun": true,
+      "settleDegraded": false,
+      "startedAt": "2026-08-20T18:09:29.725Z",
+      "title": "Disabled people - GOV.UK",
+      "url": "https://www.gov.uk/browse/disabilities",
+      "urlTemplate": "/browse/disabilities"
+    }
+  ],
+  "run": {
+    "baseUrl": "https://www.gov.uk/",
+    "blockedOrigins": [],
+    "bypassCSP": true,
+    "colorScheme": "light",
+    "concurrency": 3,
+    "configHash": "675b170c7d7c6200",
+    "deviceScaleFactor": 1,
+    "durationMs": 20149,
+    "id": "7e7fd64c-2cc6-41c2-9c9f-3668fdec5c0b",
+    "locale": "en-US",
+    "mode": "audit",
+    "probesEnabled": [
+      "probe/focus-obscured",
+      "probe/keyboard-trap"
+    ],
+    "reducedMotion": "reduce",
+    "settle": {
+      "fontsReadyCapMs": 3000,
+      "imageDecodeCapMs": 1500,
+      "quietCapMs": 2000,
+      "quietMs": 150,
+      "strategy": "default"
+    },
+    "startedAt": "2026-08-20T18:09:13.887Z",
+    "timezoneId": "UTC",
+    "viewport": {
+      "height": 800,
+      "width": 1280
+    }
+  },
+  "schemaVersion": "1.3",
+  "summary": {
+    "findings": {
+      "bestPractice": 0,
+      "byCriterion": {},
+      "byImpact": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      },
+      "byLevel": {
+        "A": 0,
+        "AA": 0,
+        "AAA": 0
+      },
+      "byRule": {},
+      "bySource": {
+        "axe": 0,
+        "probe": 0
+      },
+      "byTier": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0
+      },
+      "needsReview": 0,
+      "suppressed": 0,
+      "total": 0,
+      "violation": 0
+    },
+    "groups": 0,
+    "pages": {
+      "errored": 0,
+      "scanned": 10,
+      "total": 10
+    },
+    "probeBlindRegions": 0,
+    "templateGroups": 0
+  },
+  "templateGroups": {},
+  "tool": {
+    "axeCoreVersion": "4.13.0",
+    "browser": "chromium",
+    "browserVersion": "151.0.7922.34",
+    "name": "a11y-ratchet",
+    "playwrightVersion": "1.62.1",
+    "version": "0.1.0"
+  }
+}

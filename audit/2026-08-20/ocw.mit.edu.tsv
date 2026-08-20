@@ -1,0 +1,49 @@
+#	ruleId	bucket	impact	SC	instances	pages	exampleUrl	selector	accessibleName	stratum	verdict
+1	list	violation	serious	1.3.1	29	29	https://ocw.mit.edu/search/	.nav		A	
+2	aria-required-children	violation	critical	1.3.1	29	29	https://ocw.mit.edu/search/	section	opencourseware search results	A	
+3	color-contrast	needs-review	serious	1.4.3	22	1	https://ocw.mit.edu/about	.pb-6.row:nth-child(1) > .col-3:nth-child(1) > .staff-card	jennifer carter jennifer carter technical project manager	A	
+4	color-contrast	needs-review	serious	1.4.3	22	1	https://ocw.mit.edu/about	.pb-6.row:nth-child(1) > .col-3:nth-child(1) > .staff-card > h3	jennifer carter	A	
+5	target-size	violation	serious	2.5.8	20	4	https://ocw.mit.edu/courses/wgs-160j-science-activism-gender-race-and-power-fall-2019/	#nav-button_desktop_015aad82-9b9e-b841-1611-4513152b434e	subsections for readings and videos	A	
+6	color-contrast	needs-review	serious	1.4.3	10	1	https://ocw.mit.edu/about	.icon-highlight-item.text-center.pb-lg-5:nth-child(1) > .font-weight-bold	#+ mit courses	A	
+7	color-contrast	needs-review	serious	1.4.3	4	1	https://ocw.mit.edu/about	#intro-2-text-col > .pb-lg-5.pb-2:nth-child(1)	mit opencourseware is a free and open collection of material from thousands of m		
+8	color-contrast	needs-review	serious	1.4.3	4	1	https://ocw.mit.edu/about	.pb-lg-5.pb-2:nth-child(1) > b	mit opencourseware		
+9	color-contrast	needs-review	serious	1.4.3	4	1	https://ocw.mit.edu/courses/22-081j-introduction-to-sustainable-energy-fall-2010/	.col-sm-6.col-12:nth-child(1) > .mt-4 > .course-info-content > .pr-3.position-relative > .partial-collapse.collapse > .m-0.list-unstyled > li:nth-child(1) > .partial-collapse-link.course-info-department.strip-link-offline	nuclear science and engineering		
+10	color-contrast	needs-review	serious	1.4.3	3	1	https://ocw.mit.edu/	#featured-course-carousel-xl > .flex-row.carousel-header.font-weight-bold > h2	featured courses		
+11	color-contrast	needs-review	serious	1.4.3	3	1	https://ocw.mit.edu/	.pl-5	about ocw	B	
+12	color-contrast	needs-review	serious	1.4.3	3	1	https://ocw.mit.edu/	a[href$="get-started"]	get started	B	
+13	color-contrast	violation	serious	1.4.3	3	1	https://ocw.mit.edu/about	#testimonial-1 > .testimonial-attribution > .testimonial-location	high school student, canada		
+14	color-contrast	needs-review	serious	1.4.3	2	1	https://ocw.mit.edu/about	#intro-text > .font-weight-normal	since #, mit opencourseware (ocw) has created new opportunities for learners and	B	
+15	color-contrast	needs-review	serious	1.4.3	2	1	https://ocw.mit.edu/	.bordered > .font-weight-bold	are you new to ocw?		
+16	color-contrast	needs-review	serious	1.4.3	2	1	https://ocw.mit.edu/educator	#welcome > .section-content > .col-12 > a > .section-gruber-quote.my-6.bg > div > .quote-main.container > .font-Helvetica.author.font-weight-normal	- professor jonathan gruber		
+17	color-contrast	needs-review	serious	1.4.3	2	1	https://ocw.mit.edu/	.course-collection > h2	discover collections	B	
+18	color-contrast	needs-review	serious	1.4.3	2	1	https://ocw.mit.edu/about	#intro-text > h1	ocw@#		
+19	link-in-text-block	violation	serious	1.4.1	2	1	https://ocw.mit.edu/	.col-3.justify-content-center.item-wrapper:nth-child(1) > .course-card.card.bg-white > .course-card-content.pb-3.px-3 > .course-level > .strip-link-offline[href="/search/?l=Non-Credit"]	non-credit		
+20	color-contrast	needs-review	serious	1.4.3	2	1	https://ocw.mit.edu/educator	#welcome > .section-content > .col-12 > a > .section-gruber-quote.my-6.bg > div > .quote-main.container > .chalk-radio.mt-5.font-cardo	chalk radio season # episode # “thinking like an economist”	B	
+21	aria-hidden-focus	violation	serious	4.1.2	2	2	https://ocw.mit.edu/about	#about-subnav			
+22	target-size	violation	serious	2.5.8	2	1	https://ocw.mit.edu/courses/wgs-160j-science-activism-gender-race-and-power-fall-2019/	.col-sm-6.col-12:nth-child(1) > .mt-4 > .course-info-content > .m-0.list-unstyled > li:nth-child(1) > .course-info-department.strip-link-offline	women's and gender studies	B	
+23	color-contrast	needs-review	serious	1.4.3	2	1	https://ocw.mit.edu/educator	#welcome > .section-content > .col-12 > a > .section-gruber-quote.my-6.bg > div > .quote-main.container > .chalk-radio.mt-5.font-cardo > b	chalk radio		
+24	link-name	violation	serious	2.4.4, 4.1.2	1	1	https://ocw.mit.edu/courses/22-081j-introduction-to-sustainable-energy-fall-2010/	.col-sm-6.col-12:nth-child(1) > .mt-4 > .course-info-content > .pr-3.position-relative > .partial-collapse-toggle-link[data-toggle="collapse"]			
+25	duplicate-id-aria	needs-review	critical	4.1.2	1	1	https://ocw.mit.edu/courses/22-081j-introduction-to-sustainable-energy-fall-2010/	.course-info-content.panel-course-info-text > .pr-3.position-relative > .partial-collapse.collapse		B	
+26	color-contrast	needs-review	serious	1.4.3	1	1	https://ocw.mit.edu/about	.col-12 > h2	ocw staff	B	
+27	color-contrast	needs-review	serious	1.4.3	1	1	https://ocw.mit.edu/educator	h2	what does it mean to think of the classroom as a place of encounter in which you		
+28	color-contrast	needs-review	serious	1.4.3	1	1	https://ocw.mit.edu/	.transparent-background-light > p	ocw offers course content and materials related to a wide range of collections. 	B	
+29	color-contrast	needs-review	serious	1.4.3	1	1	https://ocw.mit.edu/about	.col-12 > h1	our team		
+30	color-contrast	needs-review	serious	1.4.3	1	1	https://ocw.mit.edu/educator	.col-md-6 > .white-color:nth-child(1)	get motivated.		
+31	color-contrast	needs-review	serious	1.4.3	1	1	https://ocw.mit.edu/educator	.mt-3	chalk radio is an mit opencourseware podcast about inspired teaching at mit. we 		
+32	color-contrast	needs-review	serious	1.4.3	1	1	https://ocw.mit.edu/pages/get-started	p:nth-child(14)	it’s up to you to decide what and how you’d like to learn. study the materials i		
+33	color-contrast	needs-review	serious	1.4.3	1	1	https://ocw.mit.edu/	.free	free lecture notes, exams, and videos from mit. no registration required.		
+34	color-contrast	needs-review	serious	1.4.3	1	1	https://ocw.mit.edu/educator	#welcome > .section-content > .col-12 > a > .section-gruber-quote.my-6.bg > div > .quote-main.container > .quote.col-md-8.offset-md-2	you only really understand something when you go out in the real world and apply	B	
+35	color-contrast	needs-review	serious	1.4.3	1	1	https://ocw.mit.edu/	#testimonial-carousel-xl > .stories-carousel-header.carousel-header.container > .text-center	stories from the opencourseware community reflect the profound impact of sharing		
+36	color-contrast	needs-review	serious	1.4.3	1	1	https://ocw.mit.edu/about	.pb-3:nth-child(3) > a[rel="noopener noreferrer"][target="_blank"]	local copies of the ocw site		
+37	color-contrast	needs-review	serious	1.4.3	1	1	https://ocw.mit.edu/	.featured-news.d-md-block.d-none > a > .news-overlay > .featured-news-content > .featured-news-date	june #, #		
+38	color-contrast	needs-review	serious	1.4.3	1	1	https://ocw.mit.edu/	.learn-more	learn more about the ocw mission	B	
+39	probe/keyboard-trap	needs-review	critical	2.1.2	1	1	https://ocw.mit.edu/educator	iframe.w-100.h-100	professor gilbert strang on how he teaches #.# linear algebra.		
+40	color-contrast	needs-review	serious	1.4.3	1	1	https://ocw.mit.edu/	.font-weight-normal	learn more about how you can help mit opencourseware share knowledge with the wo		
+41	color-contrast	needs-review	serious	1.4.3	1	1	https://ocw.mit.edu/	.view-all-link	view all news stories	B	
+42	color-contrast	needs-review	serious	1.4.3	1	1	https://ocw.mit.edu/	.discover	discover courses, materials, & teaching resources	B	
+43	color-contrast	needs-review	serious	1.4.3	1	1	https://ocw.mit.edu/	.or	or	B	
+44	color-contrast	needs-review	serious	1.4.3	1	1	https://ocw.mit.edu/educator	.white-color[target="_blank"]	chalk radio		
+45	color-contrast	needs-review	serious	1.4.3	1	1	https://ocw.mit.edu/	.unlocking	unlocking knowledge, empowering minds.	B	
+46	color-contrast	needs-review	serious	1.4.3	1	1	https://ocw.mit.edu/	.featured-news.d-md-block.d-none > a > .news-overlay > .featured-news-content > .featured-news-heading	gaining confidence and skill with mit open learning		
+47	probe/keyboard-trap	needs-review	critical	2.1.2	1	1	https://ocw.mit.edu/about	iframe.h-100.w-100	documentary: “the courage to be open: mit opencourseware and the democratization		
+48	color-contrast	needs-review	serious	1.4.3	1	1	https://ocw.mit.edu/	.flex-column.justify-content-center.d-flex > h2	your donation makes a difference		
