@@ -1,0 +1,27 @@
+group	site	ruleId	bucket	impact	SC	instanceCount	pageCount	exampleUrl	selector	accessibleName	fgColor	bgColor	contrastRatio	colorNote	stratum	verdict
+1	vuejs.org	link-name	violation	serious	2.4.4, 4.1.2	268	2	https://vuejs.org/about/team.html	a[href="https://github.com/yyx990803"]						A	
+1	vuejs.org	target-size	violation	serious	2.5.8	66	2	https://vuejs.org/about/team.html	.TeamList[data-v-849936c2=""][data-v-481123ff=""]:nth-child(2) > .container[data-v-481123ff=""] > .members[data-v-481123ff=""] > .member[data-v-481123ff=""]:nth-child(3) > article > .data > .profiles > .desc:nth-child(1) > .desc-list > .desc-item:nth-child(1) > .desc-link.vt-link[rel="noopener noreferrer"]	vue-devtools					A	
+1	vuejs.org	link-in-text-block	violation	serious	1.4.1	64	2	https://vuejs.org/about/team.html	a[href$="livestorm.co/"]	livestorm					A	
+1	ocw.mit.edu	list	violation	serious	1.3.1	29	29	https://ocw.mit.edu/search/	.nav						A	
+1	ocw.mit.edu	aria-required-children	violation	critical	1.3.1	29	29	https://ocw.mit.edu/search/	section	opencourseware search results					A	
+1	vuejs.org	link-in-text-block	violation	serious	1.4.1	26	2	https://vuejs.org/ecosystem/themes.html	.link[href$="ui.nuxt.com/"][rel="noopener"]	nuxt ui					A	
+1	vuejs.org	frame-title	violation	serious	4.1.2	24	24	https://vuejs.org/	iframe						A	
+1	ocw.mit.edu	target-size	violation	serious	2.5.8	20	4	https://ocw.mit.edu/courses/wgs-160j-science-activism-gender-race-and-power-fall-2019/	#nav-button_desktop_015aad82-9b9e-b841-1611-4513152b434e	subsections for readings and videos					A	
+1	vuejs.org	select-name	violation	critical	4.1.2	3	1	https://vuejs.org/guide/essentials/forms.html	.demo:nth-child(49) > select						B	
+1	vuejs.org	probe/keyboard-trap	needs-review	critical	2.1.2	2	2	https://vuejs.org/tutorial/	textarea						B	
+1	vuejs.org	label	violation	critical	4.1.2	2	2	https://vuejs.org/tutorial/	textarea						B	
+1	ocw.mit.edu	target-size	violation	serious	2.5.8	2	1	https://ocw.mit.edu/courses/wgs-160j-science-activism-gender-race-and-power-fall-2019/	.col-sm-6.col-12:nth-child(1) > .mt-4 > .course-info-content > .m-0.list-unstyled > li:nth-child(1) > .course-info-department.strip-link-offline	women's and gender studies					B	
+1	ocw.mit.edu	duplicate-id-aria	needs-review	critical	4.1.2	1	1	https://ocw.mit.edu/courses/22-081j-introduction-to-sustainable-energy-fall-2010/	.course-info-content.panel-course-info-text > .pr-3.position-relative > .partial-collapse.collapse						B	
+2	vuejs.org	color-contrast	violation	serious	1.4.3	140	2	https://vuejs.org/about/team.html	.TeamList[data-v-849936c2=""][data-v-481123ff=""]:nth-child(2) > .container[data-v-481123ff=""] > .members[data-v-481123ff=""] > .member[data-v-481123ff=""]:nth-child(1) > article > .data > .org	creator @ vue.js	#757575	#f9f9f9	4.37		A	
+2	vuejs.org	color-contrast	violation	serious	1.4.3	18	2	https://vuejs.org/ecosystem/themes.html	.action-link[href$="ui.nuxt.com/"][rel="noopener noreferrer"]	see more themes from nuxt ui	#42b883	#ffffff	2.49		A	
+2	vuejs.org	color-contrast	needs-review	serious	1.4.3	113	30	https://vuejs.org/	.VPNavBarMenuGroup.vt-flyout[data-v-4ba22f22=""]:nth-child(2) > .vt-flyout-button[aria-haspopup="true"] > .vt-flyout-button-text	docs				not reproduced on live re-check (no axe color-contrast node resolved to the same element)	A	
+2	vuejs.org	color-contrast	violation	serious	1.4.3	19	17	https://vuejs.org/examples/	.options-label	options	#bbbbbb	#f9f9f9	1.82		A	
+2	vuejs.org	color-contrast	needs-review	serious	1.4.3	305	17	https://vuejs.org/examples/	a[href$="examples/#hello-world"] > .link-text	hello world			0	axe messageKey: bgOverlap	A	
+2	vuejs.org	color-contrast	violation	serious	1.4.3	44	2	https://vuejs.org/about/team.html	a[href$="evanyou.me"]	evanyou.me	#42b883	#f9f9f9	2.37		A	
+2	vuejs.org	color-contrast	violation	serious	1.4.3	278	2	https://vuejs.org/about/team.html	.member[data-v-481123ff=""]:nth-child(1) > article > .data > .profiles > .desc:nth-child(1) > .desc-list > .desc-item:nth-child(1) > .desc-link[href$="vuejs"][rel="noopener noreferrer"]	vuejs/*	#42b883	#f9f9f9	2.37		A	
+2	vuejs.org	color-contrast	violation	serious	1.4.3	237	29	https://vuejs.org/guide/introduction.html	.outline-link[href$="#what-is-vue"][data-v-cb6b0d48=""]	what is vue?	#777777	#ffffff	4.47		A	
+2	vuejs.org	color-contrast	needs-review	serious	1.4.3	78	39	https://vuejs.org/	kbd:nth-child(1)	ctrl	#bfbfbf	#ffffff	1.83		A	
+2	vuejs.org	color-contrast	violation	serious	1.4.3	52	11	https://vuejs.org/guide/introduction.html	p:nth-child(2) > a[rel="noreferrer"][target="_blank"]:nth-child(1)	javascript	#42b883	#f9f9f9	2.37		A	
+2	vuejs.org	color-contrast	violation	serious	1.4.3	121	15	https://vuejs.org/guide/introduction.html	.language-template > .lang	template	#707376	#24292e	3.07		A	
+2	vuejs.org	color-contrast	violation	serious	1.4.3	224	28	https://vuejs.org/guide/introduction.html	p:nth-child(21) > a	ways of using vue	#42b883	#ffffff	2.49		A	
+3	vuejs.org	color-contrast + frame-title (mixed)	new (run1→run2 diff)	serious	1.4.3, 4.1.2	130	27	https://vuejs.org/examples/	mixed cluster: 44 VPNavBarMenuGroup/.text/.VPNavBarMenuLink (site nav bar) + 44 .carbon-text/.carbon-poweredby (ad-widget class names) + 11 iframe (no src, ad-shaped style, distinct from the CodeMirror iframe) + 9 on /partners/ (.region/.browse-all-link/kbd - new partner card content)	mixed (multiple elements; breakdown in the selector column)						
