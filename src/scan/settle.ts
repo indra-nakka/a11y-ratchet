@@ -6,7 +6,7 @@
  * when it does fire. Instead:
  *
  *   1. goto(url, { waitUntil: 'domcontentloaded' })
- *   2. await document.fonts.ready               — contrast depends on rendered text
+ *   2. await document.fonts.ready               — contrast depends on rendered text, bounded, 3s cap
  *   3. await 2 × requestAnimationFrame           — layout + paint settled
  *   4. await in-viewport images decoded          — bounded, 1.5s cap
  *   5. mutation quiet period                     — 150ms quiet, 2s hard cap
@@ -15,6 +15,12 @@
  * `--settle-strategy` is the escape hatch for sites where this contract is
  * wrong: any non-`default` strategy replaces the whole thing with a single
  * Playwright `waitUntil` and skips steps 2–5 entirely.
+ *
+ * Step 2 was unbounded until Day 8 (`DECISIONS.md` D55): a page with a
+ * `@font-face` that never resolves (blocked origin, broken font file) hangs
+ * `document.fonts.ready` forever, and every step after it, with no typed
+ * error to show for it — the exact silent-hang shape steps 4 and 5 already
+ * guard against. Capped and reported the same way those two already are.
  */
 
 import type { Page } from 'playwright';
@@ -25,6 +31,8 @@ export interface SettleResult {
   strategy: SettleSettings['strategy'];
   durationMs: number;
   httpStatus?: number;
+  /** True if `document.fonts.ready` hit `fontsReadyCapMs` rather than resolving naturally. */
+  fontsReadyCapHit: boolean;
   /** True if in-viewport image decoding hit `imageDecodeCapMs` rather than finishing naturally. */
   imageDecodeCapHit: boolean;
   /** True if the mutation-quiet period hit `quietCapMs` rather than settling naturally. */
@@ -44,12 +52,13 @@ export async function settle(page: Page, url: string, settings: SettleSettings):
       strategy: settings.strategy,
       durationMs: Date.now() - startedAt,
       ...(httpStatus !== undefined ? { httpStatus } : {}),
+      fontsReadyCapHit: false,
       imageDecodeCapHit: false,
       quietCapHit: false,
     };
   }
 
-  await page.evaluate(() => document.fonts.ready);
+  const fontsReadyCapHit = await waitForFontsReady(page, settings.fontsReadyCapMs);
   await page.evaluate(
     () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
   );
@@ -64,9 +73,22 @@ export async function settle(page: Page, url: string, settings: SettleSettings):
     strategy: 'default',
     ...(httpStatus !== undefined ? { httpStatus } : {}),
     durationMs: Date.now() - startedAt,
+    fontsReadyCapHit,
     imageDecodeCapHit,
     quietCapHit,
   };
+}
+
+/**
+ * Node-side race, not an in-page one: `document.fonts.ready` is a single
+ * flat await with no per-call timeout of its own, so the cap is enforced
+ * here rather than inside `page.evaluate`. A cap hit leaves the in-page
+ * promise to resolve on its own time; harmless; nothing later depends on it.
+ */
+function waitForFontsReady(page: Page, capMs: number): Promise<boolean> {
+  const ready = page.evaluate(() => document.fonts.ready).then(() => false);
+  const cap = new Promise<boolean>((resolve) => setTimeout(() => resolve(true), capMs));
+  return Promise.race([ready, cap]);
 }
 
 /**

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Settle degraded — hanging font</title>
+    <style>
+      @font-face {
+        font-family: 'Hangy';
+        /* /settle-degraded/hang.font never responds (test/fixtures/server.ts) -
+           document.fonts.ready must not wait on it forever. */
+        src: url('/settle-degraded/hang.font') format('woff2');
+        font-display: block;
+      }
+      body {
+        font-family: 'Hangy', sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Settle degraded fixture</h1>
+      <p>Rendered in a font whose one @font-face source never finishes loading.</p>
+    </main>
+  </body>
+</html>

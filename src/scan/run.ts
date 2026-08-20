@@ -30,6 +30,9 @@ import { settle } from './settle.js';
 import { Frontier, resolveSameOriginLinks, type FrontierEntry } from '../crawl/frontier.js';
 import { fetchRobotsRules, type RobotsRules } from '../crawl/filters.js';
 import { fetchSitemapUrls } from '../crawl/sitemap.js';
+import { loadConfig } from '../config/load.js';
+import { applySuppressions } from '../config/suppress.js';
+import type { SuppressionEntry } from '../config/schema.js';
 import { urlTemplateFor } from '../identity/fingerprint.js';
 import { A11yRatchetError, NotImplementedError } from '../errors.js';
 import { AXE_CORE_VERSION, TOOL_NAME, TOOL_VERSION } from '../meta.js';
@@ -56,6 +59,7 @@ const DEFAULT_SETTLE: SettleSettings = {
   strategy: 'default',
   quietMs: 150,
   quietCapMs: 2000,
+  fontsReadyCapMs: 3000,
   imageDecodeCapMs: 1500,
 };
 
@@ -73,7 +77,8 @@ export async function runScan(options: ScanOptions): Promise<Report> {
   }
 
   const runStartedAt = new Date();
-  const mode = options.mode ?? 'ci';
+  const { config } = await loadConfig(options.configPath);
+  const mode = options.mode ?? config.mode ?? 'ci';
   const viewport = options.viewport ?? DEFAULT_VIEWPORT;
   const locale = options.locale ?? DEFAULT_LOCALE;
   const colorScheme = options.colorScheme ?? DEFAULT_COLOR_SCHEME;
@@ -159,7 +164,15 @@ export async function runScan(options: ScanOptions): Promise<Report> {
       }
 
       const page = await context.newPage();
-      const result = await scanOnePage(page, entry.url, entry.depth, settleSettings, includeBestPractice);
+      const result = await scanOnePage(
+        page,
+        entry.url,
+        entry.depth,
+        settleSettings,
+        includeBestPractice,
+        config.suppressions,
+        runStartedAt,
+      );
 
       if (discoverLinks && !result.page.error && !frontier.atPageCap) {
         try {
@@ -189,7 +202,7 @@ export async function runScan(options: ScanOptions): Promise<Report> {
       id: randomUUID(),
       startedAt: runStartedAt.toISOString(),
       durationMs: Date.now() - runStartedAt.getTime(),
-      configHash: hashScanConfig({ viewport, locale, colorScheme, mode, concurrency, settleSettings }),
+      configHash: hashScanConfig({ viewport, locale, colorScheme, mode, concurrency, settleSettings, config }),
       baseUrl,
       mode,
       viewport,
@@ -215,7 +228,7 @@ export async function runScan(options: ScanOptions): Promise<Report> {
     };
 
     return {
-      schemaVersion: '1.1',
+      schemaVersion: '1.2',
       tool,
       run,
       pages,
@@ -315,6 +328,8 @@ async function scanOnePage(
   depth: number,
   settleSettings: SettleSettings,
   includeBestPractice: boolean,
+  suppressions: readonly SuppressionEntry[],
+  runStartedAt: Date,
 ): Promise<{ page: PageResult; findings: Finding[] }> {
   const startedAt = new Date();
   const urlTemplate = urlTemplateFor(url);
@@ -323,7 +338,7 @@ async function scanOnePage(
     const settleResult = await settle(page, url, settleSettings);
     await injectAxeIntoAllFrames(page);
     const raw = await runAxe(page, { includeBestPractice });
-    const findings = normaliseRawFindings(raw, { url, urlTemplate });
+    const findings = applySuppressions(normaliseRawFindings(raw, { url, urlTemplate }), suppressions, runStartedAt);
     const title = await page.title();
 
     const pageResult: PageResult = {
@@ -337,6 +352,7 @@ async function scanOnePage(
       probesRun: false,
       probeBlindRegions: [],
       counts: tallyBucketCounts(findings),
+      settleDegraded: settleResult.fontsReadyCapHit || settleResult.imageDecodeCapHit || settleResult.quietCapHit,
     };
     return { page: pageResult, findings };
   } catch (error) {
@@ -351,6 +367,7 @@ async function scanOnePage(
       probesRun: false,
       probeBlindRegions: [],
       counts: { violation: 0, needsReview: 0, bestPractice: 0, suppressed: 0 },
+      settleDegraded: false,
       error: {
         kind: classifyNavigationError(error),
         message: error instanceof Error ? error.message : String(error),

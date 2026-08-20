@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 
-import { checkBaseline, readReport, regenerateBaseline, updateBaseline } from '../../index.js';
+import { checkBaseline, exitCodeForDiff, readReport, regenerateBaseline, renderDiff, updateBaseline } from '../../index.js';
 import { run } from '../runtime.js';
 
 /**
@@ -25,6 +25,7 @@ export function baselineCommand(): Command {
       run(async () => {
         const report = await readReport(reportPath);
         await updateBaseline(report, options.baseline);
+        console.log(`Updated ${options.baseline}.`);
       }),
     );
 
@@ -37,6 +38,7 @@ export function baselineCommand(): Command {
       run(async () => {
         const report = await readReport(reportPath);
         await regenerateBaseline(report, options.baseline);
+        console.log(`Regenerated ${options.baseline}.`);
       }),
     );
 
@@ -48,7 +50,17 @@ export function baselineCommand(): Command {
     .action((reportPath: string, options: { baseline: string }) =>
       run(async () => {
         const report = await readReport(reportPath);
-        await checkBaseline(report, options.baseline);
+        const result = await checkBaseline(report, options.baseline);
+        console.log(await renderDiff(result, { format: 'summary' }));
+
+        const exitCode = exitCodeForDiff(result);
+        if (exitCode !== 0) {
+          console.log(
+            `\nThe committed baseline at ${options.baseline} no longer matches. This never writes to the ` +
+              `repository - run this locally and commit the result:\n\n  a11y-ratchet baseline update ${reportPath} --baseline ${options.baseline}\n`,
+          );
+          process.exitCode = exitCode;
+        }
       }),
     );
 
@@ -57,7 +69,7 @@ export function baselineCommand(): Command {
     `
 Notes:
   Accepting a known violation is not a baseline update - it is a suppression,
-  with a justification, an owner and an expiry date. The baseline records what
+  with a reason, an owner and an expiry date. The baseline records what
   is true; the config records what was decided.
 `,
   );

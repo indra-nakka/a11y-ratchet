@@ -8,19 +8,21 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { FIXTURE_ORIGIN, pageUrl, start, stop } from '../fixtures/server.js';
+import { pageUrl, start, stop } from '../fixtures/server.js';
 
 describe('fixture server', () => {
+  let origin: string;
+
   beforeAll(async () => {
-    await start();
+    origin = await start();
   });
 
   afterAll(async () => {
     await stop();
   });
 
-  it('serves the clean page over a deterministic origin', async () => {
-    expect(pageUrl('10-clean')).toBe(`${FIXTURE_ORIGIN}/10-clean/`);
+  it('serves the clean page over its resolved origin', async () => {
+    expect(pageUrl('10-clean')).toBe(`${origin}/10-clean/`);
 
     const response = await fetch(pageUrl('10-clean'));
     expect(response.status).toBe(200);
@@ -39,7 +41,7 @@ describe('fixture server', () => {
   });
 
   it('serves the manifest', async () => {
-    const response = await fetch(`${FIXTURE_ORIGIN}/manifest.json`);
+    const response = await fetch(`${origin}/manifest.json`);
     expect(response.status).toBe(200);
 
     const manifest = (await response.json()) as { pages: { path: string }[] };
@@ -47,14 +49,14 @@ describe('fixture server', () => {
   });
 
   it('404s for unknown paths', async () => {
-    const response = await fetch(`${FIXTURE_ORIGIN}/no-such-page/`);
+    const response = await fetch(`${origin}/no-such-page/`);
     expect(response.status).toBe(404);
   });
 
   it('refuses to serve files outside the fixture root', async () => {
     // Percent-encoded so the URL parser does not normalise the traversal away
     // before it reaches the server's own guard.
-    const response = await fetch(`${FIXTURE_ORIGIN}/%2e%2e/%2e%2e/package.json`);
+    const response = await fetch(`${origin}/%2e%2e/%2e%2e/package.json`);
     expect(response.status).toBe(404);
   });
 });

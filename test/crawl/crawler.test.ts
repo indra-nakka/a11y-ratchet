@@ -9,15 +9,20 @@
  *   page-a (depth 1) -> index (revisit, deduped), page-c (depth 2)
  *   page-b (depth 1) -> page-e (depth 2)
  *   page-c (depth 2) -> page-d (depth 3, must be excluded by the depth cap)
+ *
+ * The sitemap/url-list seed tests need absolute URLs at the fixture server's
+ * *actual* origin — since Day 8 (`DECISIONS.md` D53) that origin is an
+ * ephemeral port assigned per run, not a fixed one, so those files can't be
+ * static fixtures on disk. Generated into a temp dir in `beforeAll` instead.
  */
 
-import { fileURLToPath } from 'node:url';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { scan } from '../../src/index.js';
 import { pageUrl, start, stop } from '../fixtures/server.js';
-
-const CRAWL_SITE_DIR = fileURLToPath(new URL('../fixtures/pages/crawl-site/', import.meta.url));
 
 function pageNames(urls: string[]): string[] {
   return urls
@@ -29,12 +34,38 @@ function pageNames(urls: string[]): string[] {
 }
 
 describe('crawl frontier against the crawl-site fixture', () => {
+  let tmpDir: string;
+  let sitemapPath: string;
+  let urlListPath: string;
+  let urlListWithMissingPath: string;
+
   beforeAll(async () => {
     await start();
+    const crawlSite = pageUrl('crawl-site');
+
+    tmpDir = await mkdtemp(join(tmpdir(), 'a11y-ratchet-crawl-test-'));
+
+    sitemapPath = join(tmpDir, 'sitemap.xml');
+    await writeFile(
+      sitemapPath,
+      `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>${crawlSite}</loc></url>
+  <url><loc>${crawlSite}page-d.html</loc></url>
+</urlset>
+`,
+    );
+
+    urlListPath = join(tmpDir, 'urls.txt');
+    await writeFile(urlListPath, `${crawlSite}page-b.html\n${crawlSite}page-e.html\n`);
+
+    urlListWithMissingPath = join(tmpDir, 'urls-with-missing.txt');
+    await writeFile(urlListWithMissingPath, `${crawlSite}index.html\n${crawlSite}does-not-exist.html\n`);
   }, 30_000);
 
   afterAll(async () => {
     await stop();
+    await rm(tmpDir, { recursive: true, force: true });
   });
 
   it('a depth-2 crawl finds exactly the expected page set', async () => {
@@ -112,20 +143,20 @@ describe('crawl frontier against the crawl-site fixture', () => {
     // BFS from a depth-2 cap - the sitemap names it directly, so a sitemap
     // seed must be able to reach it. It links nowhere, so this also proves
     // sitemap seeds never crawl beyond their own list.
-    const report = await scan({ seed: { sitemap: `${CRAWL_SITE_DIR}sitemap.xml` } });
+    const report = await scan({ seed: { sitemap: sitemapPath } });
 
     expect(pageNames(report.pages.map((page) => page.url))).toEqual(['index', 'page-d.html'].sort());
     expect(report.pages.every((page) => page.depth === 0)).toBe(true);
   }, 30_000);
 
   it('seeds from an explicit URL list file, scanning exactly the listed URLs', async () => {
-    const report = await scan({ seed: { urlList: `${CRAWL_SITE_DIR}urls.txt` } });
+    const report = await scan({ seed: { urlList: urlListPath } });
 
     expect(pageNames(report.pages.map((page) => page.url))).toEqual(['page-b.html', 'page-e.html'].sort());
   }, 30_000);
 
   it('a 404 still navigates and settles - it is an httpStatus, not a PageError', async () => {
-    const report = await scan({ seed: { urlList: `${CRAWL_SITE_DIR}urls-with-missing.txt` } });
+    const report = await scan({ seed: { urlList: urlListWithMissingPath } });
 
     const missing = report.pages.find((page) => page.url.includes('does-not-exist'));
     expect(missing?.error).toBeUndefined();

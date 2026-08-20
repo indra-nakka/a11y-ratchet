@@ -1130,3 +1130,220 @@ total findings and 521 distinct `groupKey`s, the site-wide shared-chrome
 defects are exactly the ones `01 §8`'s grouped report view and the Day 14
 audit estimate depend on collapsing — confirmed, not just plausible from
 the 10-page test.
+
+---
+
+## 2026-08-20 — Day 8
+
+### D53. Carryover: Day 7's 30-page crawl produced 521 distinct groups, not 20–40
+
+Day 8 asked this reported before any new code: `00 §9` and `03 §2` size the
+Day 14 audit budget on an assumption of 20–40 distinct findings per site.
+D52's real 30-page crawl (`books.toscrape.com`) produced **521 distinct
+`groupKey`s** from 4,899 total findings — roughly 13× the assumption.
+
+This is not a grouping-correctness problem. D52 already confirmed the
+mechanism works exactly as designed: several genuinely shared defects
+(`link-in-text-block` on the nav, four `color-contrast` groups, two
+`target-size` groups) each collapsed to exactly one `groupKey` across all
+30 pages. The gap is that most of this site's 521 groups are **not**
+shared-chrome defects at all — `books.toscrape.com` is a product-catalogue
+site where most contrast/link findings are on a per-book element with a
+per-book accessible name (the book title), so `groupKey`'s `accessibleName`
+component correctly keeps each book's finding distinct rather than
+collapsing them. `groupKey` was never designed to collapse *distinct*
+elements that merely share a rule; it collapses one *recurring* element
+(nav, footer) across pages, which is a narrower thing.
+
+**The 20–40 estimate holds for a mostly-static marketing/docs site with a
+shared header/footer and few repeated per-item components. It does not
+hold for a catalogue/listing site** (product grids, search results,
+paginated cards) where each item plausibly contributes its own distinct
+group. `00 §9`/`03 §2` should either scope the estimate explicitly to the
+former site shape, or the Day 14 audit budget should plan for a
+higher-variance range. Not changed today — Day 8's scope is config and
+suppression, not the audit-day plan — but flagged now rather than
+discovered as a surprise on Day 14.
+
+### D54. Ephemeral fixture-server port, not a fixed one — the real fix for D51's race
+
+Day 7 (D51) "fixed" an `EADDRINUSE` race between test files sharing
+`test/fixtures/server.ts`'s fixed port 4173 by setting `fileParallelism:
+false` in `vitest.config.ts`, serialising every test file in the suite.
+That was the wrong fix for the actual cause: the race is that two files can
+each try to bind the *same* port, which holds regardless of whether that
+port is fixed or OS-assigned. Today: `server.ts` now binds `listen(0, ...)`
+(ephemeral) and returns the resolved origin from `start()`; every consumer
+(`pageUrl()`, the smoke test, the crawler tests' generated sitemap/url-list
+fixtures) reads the *actual* origin at runtime instead of assuming one.
+`fileParallelism: false` is removed.
+
+Safe because `urlTemplateFor()` (`02 §5`) is deliberately path-only — origin
+and port were never a fingerprint input, so nothing about determinism
+depended on the port being fixed; that part of D51's original comment was
+never actually load-bearing. Verified: full suite passes repeatably across
+several consecutive `npm test` runs, and wall-clock dropped from ~39–43s
+(serialised) back to ~17s (parallel) — confirming the serialisation really
+was pure cost, not a needed safeguard.
+
+### D55. `document.fonts.ready` bounded (3s cap), `PageResult.settleDegraded` added
+
+`01 §5`'s readiness contract bounds steps 4 (image decode, 1.5s) and 5
+(mutation quiet, 2s hard cap) but left step 2 (`document.fonts.ready`)
+unbounded — a page with one `@font-face` source that never resolves (blocked
+origin, broken font file, dead CDN) hung it, and everything after it,
+forever, with no typed error to show for it. The exact silent-hang shape
+steps 4 and 5 already guard against, just missed on step 2.
+
+Fixed the same way: `SettleSettings.fontsReadyCapMs` (default 3000ms),
+enforced via a Node-side `Promise.race` (not an in-page one — `fonts.ready`
+is a single flat await with no per-call timeout of its own to hook). A cap
+hit leaves the in-page promise to resolve on its own time; harmless, since
+nothing downstream depends on it.
+
+Because a capped wait means the page may not have been fully settled when
+scanned, `PageResult.settleDegraded: boolean` was added — true if *any* of
+the three bounded waits (fonts, image-decode, mutation-quiet) hit its cap.
+Not an error (the page still scanned, findings are still real) but a
+"scanned, possibly early" signal a report reader should be able to tell
+apart from "scanned cleanly." `Report.schemaVersion` bumped `1.1` → `1.2`
+for the new field, per the standing rule in `types.ts`.
+
+Verified with a real fixture (`test/fixtures/pages/settle-degraded/`, one
+`@font-face` pointing at a route the fixture server deliberately never
+responds to) rather than asserted: `settle()` reports `fontsReadyCapHit`
+and returns well within the cap, and a full `scan()` surfaces
+`settleDegraded: true` on that page and `false` on an ordinary one.
+
+### D56. `SuppressionCategory` stays four values, not the three today's brief listed
+
+Today's instruction enumerated `category` as `'false-positive' |
+'accepted-risk' | 'third-party'`. `types.ts` already defines a fourth value,
+`'deferred'`, established on an earlier day. Asked rather than silently
+picking one: confirmed `types.ts` stays authoritative and the brief's list
+was shorthand, not an intentional narrowing. `config/schema.ts`'s zod enum
+uses all four, pinned to `SuppressionCategory` via a `satisfies` check so
+the two can't silently drift apart again.
+
+### D57. Config file convention corrected: discovery, not a fixed `.a11y/` path
+
+`src/meta.ts` exported `DEFAULT_CONFIG_PATH = '.a11y/config.json'` since
+Day 1, used as the CLI's `--config` default — but no code ever implemented
+discovery against it, and it matches neither `docs/README.md`'s own
+`a11y-ratchet.config.ts` example nor today's explicit instruction (file
+discovery for `a11y-ratchet.config.{ts,js,json}`). It was an ungrounded
+placeholder, not a considered convention. Replaced with `CONFIG_BASENAME =
+'a11y-ratchet.config'`, used by the new `config/load.ts`'s discovery (tried
+in order `.ts`, `.js`, `.json`; first one present wins). `scan --config`
+and `check-config`'s config argument both lost their hardcoded
+`.a11y/config.json` defaults so omitting them actually triggers discovery
+instead of always pointing at a file discovery was never wired to find.
+
+### D58. `.ts` config loading: discovered, but no bundler added to load it — asked, and a Node-version surprise found while verifying
+
+Loading `a11y-ratchet.config.ts` at runtime needs something to strip
+TypeScript syntax; Node 20 (the project's stated minimum, `CLAUDE.md`
+Stack) has no built-in support. `esbuild` is available transitively via
+`tsup` but isn't a declared runtime dependency, and `CLAUDE.md`'s Stack
+section is a deliberately closed list. Asked rather than silently adding a
+dependency: chose NOT to add `esbuild`. `config/load.ts` discovers `.ts`
+files and attempts a plain `import()`; on Node versions with no TypeScript
+support this throws, and the error is rewritten to name the real cause
+("this process has no TypeScript loader registered... run under tsx/
+ts-node, or use a .js or .json config") rather than surfacing a generic
+import failure.
+
+**Verifying this manually surfaced something the design decision didn't
+anticipate:** the actual Node installed here is v24.16.0, and Node 23.6+
+enabled TypeScript type-stripping *by default*, with no flag. A `.ts`
+config using only plain data (the documented README example, and
+realistically almost every suppression config, since they're data
+literals) loads out of the box on this Node version — the "no TS loader"
+error path is real but dormant here. Confirmed it still fires correctly for
+genuine TS-only runtime syntax that erasure-only stripping can't handle
+(tested with a `.ts` config using a numeric `enum`): `Could not load
+...: this process has no TypeScript loader registered ... (TypeScript enum
+is not supported in strip-only mode)`. Not retested inside the Vitest
+suite itself — Vitest's own Vite-powered environment transparently
+transforms any `.ts` file it dynamically imports, including ones outside
+the project tree, so the failure path can only be observed by shelling out
+to the built CLI under plain `node`, not from within `vitest run`.
+
+### D59. Suppression matching design: five independent-AND matchers, config-side `reason` vs report-side `justification`
+
+`config/suppress.ts` matches a config entry against a `Finding` by whichever
+of `rule` / `criterion` / `selector` / `urlPattern` / `fingerprint` the
+entry sets — ALL set ones must match (AND); the schema already refuses an
+entry with none set (`03 Part 3 §11`'s "must match on at least one"
+requirement). Matching against `Finding.selector` is not a `CLAUDE.md`
+invariant-2 violation: that invariant governs finding *identity*
+(fingerprint/groupKey), never what a human-authored suppression is allowed
+to filter on — a suppression is a decision about a specific place in the
+DOM, and a CSS-selector glob is a reasonable way for a person to describe
+that place.
+
+The config file's field is named `reason` (matching `docs/README.md`'s own
+example); `types.ts`'s `SuppressionRef.justification` is a different,
+already-established name for the same value on the *report* side. Kept
+both names rather than renaming one to match the other — `SuppressionRef`
+predates today and other code already depends on `justification`; the
+config schema is new today and `reason` is what the docs already show
+users. `config/suppress.ts::toSuppressionRef()` is the one place that maps
+between them.
+
+### D60. Baseline lifecycle: `update` diffs-then-overwrites, `regenerate` overwrites unconditionally, `check` never writes
+
+`01 §11`'s table names four situations but doesn't spell out exactly what
+`update` keeps versus discards. Read literally — "drop findings that no
+longer occur, keep the rest" — and since a fresh `Report` by construction
+contains only findings that currently occur, "keep the rest" reduces to
+"the new baseline is the fresh report, in full." So `updateBaseline()` and
+`regenerateBaseline()` end up writing the same content; the difference is
+in what each is *allowed* to do to get there:　
+
+- `updateBaseline()` requires an existing baseline (refuses with exit 3,
+  naming `regenerate`, if there isn't one) and runs `diff()` against it
+  first — for its refusals: engine drift and incompatible run config both
+  propagate exactly as `diff()` throws them, so `update` cannot be used to
+  silently paper over an axe-core bump. That's what `regenerate` is for.
+- `regenerateBaseline()` skips the read and the diff entirely — unconditional
+  overwrite, works even with no prior baseline (the first-ever baseline for
+  a new project) or across an engine bump.
+- `checkBaseline()` requires an existing baseline (same exit-3 refusal) and
+  returns `diff()`'s `DiffResult` untouched — it never writes. The "print
+  the local command to run" behaviour (`01 §11`: CI never writes to the
+  repo) lives in `cli/commands/baseline.ts`'s `check` action, not the
+  library function, matching where `01 §10`'s exit-code decisions already
+  live (`exitCodeForDiff`, `exitCodeForConfigCheck`).
+
+`updateBaseline()` deliberately does NOT refuse when the diff shows gating
+regressions (new violations, impact increases) — it's explicitly a local,
+human-run command (never CI), and the CLI already prints the diff summary
+first. Refusing would add friction the docs never asked for, for a
+developer who may be baselining a first scan with known, backlogged issues.
+
+### D61. Suppression end-to-end, verified for the first time: does not read as `fixed`
+
+Day 8 asked this verified, not assumed — D13 (suppressed findings stay
+pooled, tagged, never dropped) was built as an architectural property back
+when the diff/match/gate layer was written, but nothing had ever driven a
+real suppression through the real pipeline end to end. Built
+`test/config/suppress-end-to-end.test.ts`: a real `scan()` of the same
+fixture page (`01-images`, real `image-alt` finding) run twice — once with
+no config, once with a config suppressing that rule — then a real `diff()`
+between the two.
+
+**Confirmed:** the suppressed run's finding carries a fully-populated
+`SuppressionRef` and stays in `Report.findings` (not moved to a second
+array, not dropped — `counts.suppressed` reflects it). Diffing the
+unsuppressed run as base against the suppressed run as head: the finding
+does **not** appear in `findings.fixed` (the false-fix D13 exists to
+prevent), does not appear in `findings.new` either, and correctly appears
+in `findings.persisting` — proof the matcher pooled base and head despite
+the `suppressed` tag difference between them and classified the pair
+correctly rather than losing the match. `gate.countedAgainstGate` is `0`
+and `gate.passed` is `true`, since the gate predicate excludes
+`suppressed` findings (`diff/gate.ts`, already built). No production code
+changed to make this pass — same story as D50: the architecture already
+had this property; today supplied the config layer that could exercise it,
+and the test that proves it.

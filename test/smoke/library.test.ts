@@ -29,6 +29,7 @@ describe('public library API', () => {
       'readReport',
       'writeReport',
       'checkConfig',
+      'exitCodeForConfigCheck',
       'updateBaseline',
       'regenerateBaseline',
       'checkBaseline',
@@ -62,17 +63,16 @@ describe('public library API', () => {
 });
 
 describe('unimplemented entry points', () => {
-  // exitCodeForScan (Day 13) and checkConfig (Day 8) are chosen because they
-  // stay stubs the longest - scan (Day 2), coverage/coverageCounts (Day 3),
-  // diff/exitCodeForDiff (Day 6) moved out of this list as their days
-  // landed. Neither stub is declared `async`, so the throw happens
-  // synchronously despite the Promise-typed return signature - toThrow()
-  // doesn't need an async assertion here.
+  // exitCodeForScan (Day 13) is chosen because it stays a stub the longest -
+  // scan (Day 2), coverage/coverageCounts (Day 3), diff/exitCodeForDiff
+  // (Day 6), checkConfig/baseline (Day 8) moved out of this list as their
+  // days landed. Not declared `async`, so the throw happens synchronously
+  // despite the Promise-typed return signature - toThrow() doesn't need an
+  // async assertion here.
   it('throw rather than returning an empty result', () => {
     // A scanner that reports zero violations because it did nothing is the
     // worst possible failure mode for this tool. Stubs must be loud.
     expect(() => lib.exitCodeForScan({} as never)).toThrow(NotImplementedError);
-    expect(() => lib.checkConfig('.a11y/config.json')).toThrow(NotImplementedError);
   });
 
   it('carry exit code 3, so CI reads them as a tool error and not a pass', () => {

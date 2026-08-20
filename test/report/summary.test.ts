@@ -30,7 +30,7 @@ function report(findings: Finding[]): Report {
   const needsReview = findings.filter((f) => f.bucket === 'needs-review' && !f.bestPractice).length;
   const bestPractice = findings.filter((f) => f.bestPractice).length;
   return {
-    schemaVersion: '1.1',
+    schemaVersion: '1.2',
     tool: { name: 'a11y-ratchet', version: '0.1.0', axeCoreVersion: '4.13.0', playwrightVersion: '1.62.1', browser: 'chromium', browserVersion: '140.0' },
     run: {
       id: 'run-1',
@@ -47,7 +47,7 @@ function report(findings: Finding[]): Report {
       reducedMotion: 'reduce',
       blockedOrigins: [],
       concurrency: 3,
-      settle: { strategy: 'default', quietMs: 150, quietCapMs: 2000, imageDecodeCapMs: 1500 },
+      settle: { strategy: 'default', quietMs: 150, quietCapMs: 2000, fontsReadyCapMs: 3000, imageDecodeCapMs: 1500 },
       probesEnabled: [],
     },
     pages: [
@@ -60,6 +60,7 @@ function report(findings: Finding[]): Report {
         probesRun: false,
         probeBlindRegions: [],
         counts: { violation, needsReview, bestPractice, suppressed: 0 },
+        settleDegraded: false,
       },
     ],
     findings,

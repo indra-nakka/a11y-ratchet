@@ -6,21 +6,23 @@
  * accessibility scanner whose test suite is red for reasons outside the repo
  * gets ignored within a week.
  *
- * The port is fixed rather than ephemeral so fixture URLs are byte-identical
- * between runs — the determinism tests compare fingerprint sets across scans,
- * and `urlTemplate` is an input to the fingerprint.
+ * Binds an ephemeral port (`listen(0, ...)`), not a fixed one. A fixed port
+ * was the Day 7 fix for `EADDRINUSE` races between test files (`DECISIONS.md`
+ * D51) — the wrong fix: the race is that two files can both try to bind ONE
+ * port, and it holds regardless of whether that port is fixed or ephemeral.
+ * `vitest.config.ts`'s `fileParallelism: false` was the actual fix; a fixed
+ * port bought nothing but the false comfort of byte-identical fixture URLs
+ * across runs, which nothing actually depends on — `urlTemplate` (the
+ * fingerprint input the comment worried about) is path-only, deliberately
+ * excluding origin and port (`02 §5`).
  */
 
 import { createServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-/** Fixed so fixture URLs are stable across runs. */
-export const FIXTURE_PORT = 4173;
-
-export const FIXTURE_ORIGIN = `http://127.0.0.1:${FIXTURE_PORT}`;
 
 /** Absolute path to the served root. */
 export const PAGES_ROOT = fileURLToPath(new URL('./pages/', import.meta.url));
@@ -67,18 +69,29 @@ async function resolveFile(urlPath: string): Promise<string | null> {
 
 let server: Server | null = null;
 let refCount = 0;
+let origin: string | null = null;
 
 /**
- * Start the fixture server, or join an already-running one.
+ * Start the fixture server, or join an already-running one, and return its
+ * origin. The port is assigned by the OS (`listen(0, ...)`) and only known
+ * once `start()` resolves — callers must use the returned origin (or
+ * `currentOrigin()`/`pageUrl()` afterwards), never assume a fixed value.
  *
  * Reference-counted so several suites in the same worker can each call
- * `start()`/`stop()` without fighting over the port.
+ * `start()`/`stop()` without fighting over the server.
  */
 export async function start(): Promise<string> {
   refCount += 1;
-  if (server) return FIXTURE_ORIGIN;
+  if (server && origin) return origin;
 
   const instance = createServer((req, res) => {
+    // Never responds. Exists so a fixture can request a resource (a font,
+    // via `@font-face`) that never finishes loading, for the settle
+    // fonts-ready cap test (`DECISIONS.md` D54) - the browser's connection
+    // closes on its own once the page/context closes, so this never blocks
+    // stop().
+    if (req.url === '/settle-degraded/hang.font') return;
+
     void (async () => {
       const file = await resolveFile(req.url ?? '/');
       if (!file) {
@@ -98,14 +111,20 @@ export async function start(): Promise<string> {
 
   await new Promise<void>((resolvePromise, rejectPromise) => {
     instance.once('error', rejectPromise);
-    instance.listen(FIXTURE_PORT, '127.0.0.1', () => {
+    instance.listen(0, '127.0.0.1', () => {
       instance.removeListener('error', rejectPromise);
       resolvePromise();
     });
   });
 
+  const address = instance.address() as AddressInfo | null;
+  if (!address) {
+    throw new Error('fixture server did not resolve a listening address');
+  }
+
   server = instance;
-  return FIXTURE_ORIGIN;
+  origin = `http://127.0.0.1:${address.port}`;
+  return origin;
 }
 
 /** Release one reference; the server closes when the last one goes. */
@@ -115,14 +134,23 @@ export async function stop(): Promise<void> {
 
   const instance = server;
   server = null;
+  origin = null;
   await new Promise<void>((resolvePromise, rejectPromise) => {
     instance.close((error) => (error ? rejectPromise(error) : resolvePromise()));
   });
 }
 
+/** The running server's origin. Throws if `start()` hasn't resolved yet. */
+export function currentOrigin(): string {
+  if (!origin) {
+    throw new Error('fixture server not started - call start() before pageUrl()/currentOrigin()');
+  }
+  return origin;
+}
+
 /** URL of a fixture page directory, e.g. `pageUrl('10-clean')`. */
 export function pageUrl(dir: string): string {
-  return `${FIXTURE_ORIGIN}/${dir}/`;
+  return `${currentOrigin()}/${dir}/`;
 }
 
 /** Absolute path of the fixture manifest. */

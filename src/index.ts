@@ -13,6 +13,8 @@
  */
 
 import { NotImplementedError } from './errors.js';
+import { checkBaseline as checkBaselineImpl, regenerateBaseline as regenerateBaselineImpl, updateBaseline as updateBaselineImpl } from './baseline/lifecycle.js';
+import { runCheckConfig } from './config/check.js';
 import { runDiff } from './diff/run.js';
 import { renderDiffSummary } from './report/diffSummary.js';
 import { readReport as readReportFromDisk, writeReport as writeReportToDisk } from './report/json.js';
@@ -41,8 +43,8 @@ export type * from './types.js';
 export { A11yRatchetError, NotImplementedError } from './errors.js';
 export {
   AXE_CORE_VERSION,
+  CONFIG_BASENAME,
   DEFAULT_BASELINE_PATH,
-  DEFAULT_CONFIG_PATH,
   TOOL_NAME,
   TOOL_VERSION,
 } from './meta.js';
@@ -152,12 +154,23 @@ export function writeReport(report: Report, path: string): Promise<void> {
 
 /**
  * Validate a config file: schema, mandatory suppression fields, expiry, and
- * staleness against a report. Expired suppressions fail the check (exit 2).
- *
- * Day 8.
+ * staleness against a report. `configPath` omitted discovers
+ * `a11y-ratchet.config.{ts,js,json}`; no file found is not an error
+ * (suppressions are opt-in). Staleness needs `report` — omitted, that check
+ * is skipped and noted in `warnings`, not silently passed.
  */
-export function checkConfig(_configPath: string, _report?: Report): Promise<ConfigCheckResult> {
-  throw new NotImplementedError('checkConfig()', 'Day 8');
+export function checkConfig(configPath?: string, report?: Report): Promise<ConfigCheckResult> {
+  return runCheckConfig(configPath, report, new Date());
+}
+
+/**
+ * Map a config check to a process exit code (`01 §10`). Exit 2 for either
+ * an invalid config or any expired suppression — two distinct triggers for
+ * the one code the table assigns them, so CI can tell "your config is
+ * broken" from "your gate passed" without a third code neither doc asks for.
+ */
+export function exitCodeForConfigCheck(result: ConfigCheckResult): ExitCode {
+  return !result.valid || result.expired.length > 0 ? 2 : 0;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -169,32 +182,32 @@ export function checkConfig(_configPath: string, _report?: Report): Promise<Conf
  * rest. Run locally and committed alongside the fix (`01 §11`).
  *
  * The library writes baselines. The GitHub Action never does — it fails the gate
- * and prints the command to run.
- *
- * Day 12.
+ * and prints the command to run. Refuses under the same conditions `diff()`
+ * does (engine drift, incompatible run config) — silently absorbing an
+ * axe-core bump is `regenerateBaseline()`'s job, not this one's.
  */
-export function updateBaseline(_report: Report, _baselinePath: string): Promise<Report> {
-  throw new NotImplementedError('updateBaseline()', 'Day 12');
+export function updateBaseline(report: Report, baselinePath: string): Promise<Report> {
+  return updateBaselineImpl(report, baselinePath);
 }
 
 /**
- * Replace the baseline wholesale from a fresh report. The path for an axe-core
- * bump, where reviewers should see the churn as a diff.
- *
- * Day 12.
+ * Replace the baseline wholesale from a fresh report, unconditionally — no
+ * comparison against what's there now, no refusal. The path for an
+ * axe-core bump (reviewers see the churn as a diff on the committed file)
+ * and for creating the first baseline a project ever has.
  */
-export function regenerateBaseline(_report: Report, _baselinePath: string): Promise<Report> {
-  throw new NotImplementedError('regenerateBaseline()', 'Day 12');
+export function regenerateBaseline(report: Report, baselinePath: string): Promise<Report> {
+  return regenerateBaselineImpl(report, baselinePath);
 }
 
 /**
  * Compare a committed baseline against a fresh report and report the drift.
  * Run on a schedule so a stale baseline surfaces as an issue, not a surprise.
- *
- * Day 12.
+ * Never writes anything — CI never writes to the repo; a caller whose gate
+ * fails here should print the local `baseline update` command, not run it.
  */
-export function checkBaseline(_report: Report, _baselinePath: string): Promise<DiffResult> {
-  throw new NotImplementedError('checkBaseline()', 'Day 12');
+export function checkBaseline(report: Report, baselinePath: string): Promise<DiffResult> {
+  return checkBaselineImpl(report, baselinePath);
 }
 
 /* -------------------------------------------------------------------------- */

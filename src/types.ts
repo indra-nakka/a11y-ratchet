@@ -434,6 +434,16 @@ export interface PageResult {
     bestPractice: number;
     suppressed: number;
   };
+  /**
+   * True if any of the `default` settle strategy's bounded waits (fonts
+   * ready, image decode, mutation quiet — `01 §5`) hit its cap instead of
+   * resolving naturally. The page was still scanned, not skipped, but its
+   * timing (and possibly its rendered state) may not reflect a fully
+   * settled page — `false` for a page that never used the `default`
+   * strategy. Not an error: recorded so a reader can tell "scanned, but
+   * possibly early" from "scanned cleanly" (`DECISIONS.md` D55).
+   */
+  settleDegraded: boolean;
   /** Present iff the page failed. */
   error?: PageError;
 }
@@ -466,6 +476,8 @@ export interface SettleSettings {
   quietMs: number;
   /** Hard cap on the quiet period. */
   quietCapMs: number;
+  /** Cap on waiting for `document.fonts.ready` (`DECISIONS.md` D55). */
+  fontsReadyCapMs: number;
   /** Cap on waiting for in-viewport images to decode. */
   imageDecodeCapMs: number;
 }
@@ -552,8 +564,8 @@ export interface Summary {
  * before applying `bucket` and `bestPractice`.
  */
 export interface Report {
-  /** Bumped to `'1.1'` for `Summary.findings.byTier` (`DECISIONS.md` D38). */
-  schemaVersion: '1.1';
+  /** Bumped to `'1.2'` for `PageResult.settleDegraded` (`DECISIONS.md` D55). */
+  schemaVersion: '1.2';
   tool: ToolInfo;
   run: RunInfo;
   /** Every page attempted, including ones that errored. */

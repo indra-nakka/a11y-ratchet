@@ -29,7 +29,10 @@ export function scanCommand(): Command {
       'ci blocks third-party requests for diff stability; audit allows them so the focus probe sees real overlays',
       'ci',
     )
-    .option('--config <path>', 'config file', '.a11y/config.json')
+    .option(
+      '--config <path>',
+      'config file (default: discover a11y-ratchet.config.{ts,js,json} in the working directory)',
+    )
     .option('--storage-state <path>', 'Playwright storageState file, for scanning behind auth')
 
     .option('--viewport <WxH>', 'viewport size, recorded in the report', '1280x800')
@@ -80,6 +83,7 @@ Notes:
           mode: options.mode as ScanMode,
           concurrency: Number(options.concurrency),
           ...(options.storageState ? { storageState: options.storageState } : {}),
+          ...(options.config ? { configPath: options.config } : {}),
         });
       }),
     );
@@ -98,4 +102,5 @@ interface RawScanCliOptions {
   concurrency: string;
   mode: string;
   storageState?: string;
+  config?: string;
 }

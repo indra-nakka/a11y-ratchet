@@ -28,7 +28,7 @@ const RUN: RunInfo = {
   reducedMotion: 'reduce',
   blockedOrigins: [],
   concurrency: 3,
-  settle: { strategy: 'default', quietMs: 150, quietCapMs: 2000, imageDecodeCapMs: 1500 },
+  settle: { strategy: 'default', quietMs: 150, quietCapMs: 2000, fontsReadyCapMs: 3000, imageDecodeCapMs: 1500 },
   probesEnabled: [],
 };
 
@@ -42,6 +42,7 @@ function page(url: string, overrides: Partial<PageResult> = {}): PageResult {
     probesRun: false,
     probeBlindRegions: [],
     counts: { violation: 0, needsReview: 0, bestPractice: 0, suppressed: 0 },
+    settleDegraded: false,
     ...overrides,
   };
 }
@@ -75,7 +76,7 @@ function report(overrides: {
   run?: Partial<RunInfo>;
 }): Report {
   return {
-    schemaVersion: '1.1',
+    schemaVersion: '1.2',
     tool: { ...TOOL, ...overrides.tool },
     run: { ...RUN, ...overrides.run },
     pages: overrides.pages,

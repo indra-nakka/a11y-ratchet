@@ -47,5 +47,12 @@ export const AXE_CORE_VERSION = axe.version;
 /** Default location of the committed baseline (`01 §11`). */
 export const DEFAULT_BASELINE_PATH = '.a11y/baseline.json';
 
-/** Default location of the config file. */
-export const DEFAULT_CONFIG_PATH = '.a11y/config.json';
+/**
+ * Config file basename, discovered with `.ts`/`.js`/`.json` tried in that
+ * order (`config/load.ts`). Not a single fixed path — corrected from an
+ * earlier, ungrounded placeholder (`DECISIONS.md` D57): a prior draft of
+ * this file exported `DEFAULT_CONFIG_PATH = '.a11y/config.json'`, which
+ * matched neither the docs' own `a11y-ratchet.config.ts` example nor
+ * anything that ever implemented discovery.
+ */
+export const CONFIG_BASENAME = 'a11y-ratchet.config';
