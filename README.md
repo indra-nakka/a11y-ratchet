@@ -1,7 +1,9 @@
 # a11y-ratchet
 
-> **Status: pre-release. Not yet functional.** Day 1 of a 15-day build. Sections marked
-> `TODO(Day N)` contain no data yet and must not be filled in with estimates. See
+> **Status: pre-release, Day 12 of a 15-day build.** Scan, diff, baseline lifecycle, the
+> HTML/JSON/terminal reports and the GitHub Action are functional and tested — the manual
+> checklist (`ratchet manual`) is the one remaining stub. Sections marked `TODO(Day N)`
+> contain no data yet and must not be filled in with estimates. See
 > [`docs/00-BRIEF-AND-PLAN.md`](docs/00-BRIEF-AND-PLAN.md) for the plan.
 
 Crawls a site, runs [axe-core](https://github.com/dequelabs/axe-core) and keyboard-interaction
@@ -17,8 +19,8 @@ which ones and [What this cannot catch](#what-this-cannot-catch) for the rest.
 ## Quickstart
 
 ```bash
-npx a11y-ratchet scan https://example.com --depth 2 --out .a11y/baseline.json
-npx a11y-ratchet scan https://example.com --depth 2 --out head.json
+npx a11y-ratchet scan https://example.com --max-depth 2 --out .a11y/baseline.json
+npx a11y-ratchet scan https://example.com --max-depth 2 --out head.json
 npx a11y-ratchet diff .a11y/baseline.json head.json --html report.html
 ```
 
@@ -130,12 +132,14 @@ gate and prints the command to run locally.
 
 | Situation | Command |
 |---|---|
-| A fix merged | `ratchet baseline update` |
-| `axe-core` bumped | `ratchet baseline regenerate` |
-| Drift from `main` | `ratchet baseline check` |
-| A violation deliberately accepted | *Not a baseline change* — add a suppression |
+| A fix merged; violations disappear | `ratchet baseline update`, committed with the fix |
+| `axe-core` bumped | `ratchet baseline regenerate` in the same PR, so reviewers see the churn |
+| Baseline drifts from `main` (the live site changed, nobody scanned it) | `ratchet baseline check`, run on a schedule — open an issue on drift |
+| A violation deliberately accepted | *Not a baseline change* — a suppression, with a reason, an owner and an expiry |
 
-Baselines record reality; config records decisions. Keeping them separate is the point.
+All four run locally or on a schedule, never as part of the PR gate — the Action never
+writes to your repository. Baselines record reality; config records decisions. Keeping them
+separate is the point.
 
 ## Configuration
 
@@ -162,23 +166,55 @@ Suppressed findings stay in the report, tagged — never dropped.
 
 ## GitHub Action
 
+A composite action wrapping the CLI ([`action.yml`](action.yml)) — not a bundled TS action,
+so what it runs is exactly what you'd type yourself. It caches the Playwright browser
+download (the slowest step by an order of magnitude) and never writes to your repository:
+a missing or stale baseline fails the job and prints the exact command to run locally.
+
 ```yaml
-- uses: <owner>/a11y-ratchet@v1
+- uses: actions/checkout@v4
+- uses: indra-nakka/a11y-ratchet@main
   with:
     url: https://staging.example.com
-    baseline: .a11y/baseline.json
-    depth: 2
+    baseline: .a11y/baseline.json   # default
+    max-depth: 2                    # default
+    mode: ci                        # default; audit allows third-party requests
+    # config: a11y-ratchet.config.ts
+    # allow-engine-drift: true      # only while a baseline-regenerating PR is in flight
 ```
 
-> `TODO(Day 12)` — link one PR that fails the gate and one that passes.
+Two real pull requests against this repo's own [demo workflow](.github/workflows/a11y-demo.yml)
+and [demo site](examples/demo-site/index.html), each linking its own job summary — a CI
+feature nobody can see running is a claim; a linked PR is evidence:
+
+- [**#1 — fails the gate**](https://github.com/indra-nakka/a11y-ratchet/pull/1): a new
+  member photo lands without an `alt` attribute. The diff reports one new `image-alt`
+  violation (WCAG 1.1.1) against the committed baseline; the job fails (exit 1).
+- [**#2 — passes the gate**](https://github.com/indra-nakka/a11y-ratchet/pull/2): a
+  text-only content change. Zero new findings; the job succeeds (exit 0).
 
 ### Exit codes
 
 `0` pass · `1` new violations vs baseline · `2` invalid config or expired suppressions ·
-`3` tool error · `4` engine drift · `5` scan threshold exceeded · `6` incompatible run
-configuration
+`3` tool error · `4` engine drift (has an escape hatch — see below) · `5` scan threshold
+exceeded · `6` incompatible run configuration (**no escape hatch, by design**)
 
-CI must be able to tell "the site regressed" from "the tool broke."
+CI must be able to tell "the site regressed" from "the tool broke" — the Action's own
+`Diff against baseline` step exits with a11y-ratchet's real exit code, not a flattened
+pass/fail, and writes a job summary explaining a refusal (4/6) or tool error (3) instead of
+leaving a bare red X.
+
+**Exit 4 vs exit 6 — only one of these has an override.** `allow-engine-drift: true` permits
+diffing across `axe-core` versions (exit 4): a PR that legitimately bumps `axe-core` should
+set this temporarily, or better, regenerate the baseline in the *same* PR (`ratchet baseline
+regenerate`) so reviewers see the churn and the flag never needs to ship on `main`. Exit 6 —
+base and head run scanned under different `mode`/viewport/locale/colour-scheme/CSP settings —
+has **no override, ever**: those settings change what a page renders, so silently allowing
+the diff would reopen the exact phantom-regression risk the guard exists to close (a
+light-mode baseline diffed against a dark-mode head reads as a wave of new contrast
+violations that were never real). Recovery is to make the settings match — align this
+workflow's inputs with whatever generated the committed baseline, or regenerate the baseline
+under the run configuration you actually want going forward.
 
 ## Manual mode
 
