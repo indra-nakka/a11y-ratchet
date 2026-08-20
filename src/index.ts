@@ -20,6 +20,7 @@ import { renderDiffSummary } from './report/diffSummary.js';
 import { renderReportHtml } from './report/html/render.js';
 import { renderDiffHtml } from './report/html/renderDiff.js';
 import { readReport as readReportFromDisk, toStableJson, writeReport as writeReportToDisk } from './report/json.js';
+import { renderManualChecklist as renderManualChecklistImpl } from './report/manualChecklist.js';
 import { renderDiffStepSummary as renderDiffStepSummaryImpl } from './report/stepSummary.js';
 import { renderSummary } from './report/summary.js';
 import { runScan } from './scan/run.js';
@@ -281,11 +282,12 @@ export function coverageCounts(levels?: Level[]): CoverageCounts {
 }
 
 /**
- * Generate the manual-testing checklist for criteria the tool cannot evaluate,
- * plus routing for anything bucketed `needs-review`.
- *
- * Day 13.
+ * Generate the manual-testing checklist for criteria the tool cannot evaluate
+ * (`wcag/coverage.ts`'s `manualChecks`, unfiltered by page — page-context
+ * derivation is cut, `00 §7` cut line 2), plus, when `report` is supplied,
+ * that run's own needs-review findings and probe-blind regions routed in
+ * per page. `options.criteria` restricts both layers to the given SC ids.
  */
-export function manualChecklist(_options: ManualOptions, _report?: Report): Promise<string> {
-  throw new NotImplementedError('manualChecklist()', 'Day 13');
+export function manualChecklist(options: ManualOptions, report?: Report): Promise<string> {
+  return Promise.resolve(renderManualChecklistImpl(options, report));
 }
