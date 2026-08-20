@@ -37,6 +37,7 @@ function finding(overrides: Partial<Finding> = {}): Finding {
   return {
     fingerprint: 'aaaaaaaaaaaaaaaa',
     groupKey: 'bbbbbbbbbbbbbbbb',
+    templateKey: 'cccccccccccccccc',
     identityTier: 1,
     identity: { value: 'x', ordinal: 0, context: { nearestLandmark: 'main', headingContext: 'none', inFrame: [] }, domDepth: 3 },
     source: 'axe',
@@ -57,7 +58,7 @@ function finding(overrides: Partial<Finding> = {}): Finding {
 
 function reportWith(findings: Finding[]): Report {
   return {
-    schemaVersion: '1.2',
+    schemaVersion: '1.3',
     tool: { name: 'a11y-ratchet', version: '0.1.0', axeCoreVersion: '4.13.0', playwrightVersion: '1.62.1', browser: 'chromium', browserVersion: '140.0' },
     run: {
       id: 'run-1', startedAt: NOW.toISOString(), durationMs: 100, configHash: 'abc', baseUrl: 'https://example.com',
@@ -65,14 +66,17 @@ function reportWith(findings: Finding[]): Report {
       colorScheme: 'light', reducedMotion: 'reduce', blockedOrigins: [], concurrency: 3,
       settle: { strategy: 'default', quietMs: 150, quietCapMs: 2000, fontsReadyCapMs: 3000, imageDecodeCapMs: 1500 },
       probesEnabled: [],
+      bypassCSP: false,
     },
     pages: [],
     findings,
     groups: {},
+    templateGroups: {},
     summary: {
       pages: { total: 0, scanned: 0, errored: 0 },
       findings: { total: findings.length, violation: findings.length, needsReview: 0, bestPractice: 0, suppressed: 0, bySource: { axe: findings.length, probe: 0 }, byImpact: { minor: 0, moderate: 0, serious: findings.length, critical: 0 }, byCriterion: {}, byLevel: { A: 0, AA: 0, AAA: 0 }, byRule: {}, byTier: { 1: findings.length, 2: 0, 3: 0, 4: 0, 5: 0 } },
       groups: 0,
+      templateGroups: 0,
       probeBlindRegions: 0,
     },
   };

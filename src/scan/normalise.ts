@@ -18,7 +18,7 @@
  */
 
 import type { RawFinding } from './axe.js';
-import { computeGroupKey } from '../identity/group.js';
+import { computeGroupKey, computeTemplateKey } from '../identity/group.js';
 import {
   assignFingerprints,
   normaliseText,
@@ -124,10 +124,17 @@ function buildFinding(entry: ResolvedEntry, assignment: { fingerprint: string; o
     identityValue: entry.identityValue,
     landmarkRole: raw.landmarkRole,
   });
+  const templateKey = computeTemplateKey({
+    ruleId: raw.ruleId,
+    source: 'axe',
+    landmarkRole: raw.landmarkRole,
+    structuralPath: raw.structuralPath,
+  });
 
   return {
     fingerprint: assignment.fingerprint,
     groupKey,
+    templateKey,
     identityTier: entry.identityTier,
     identity,
     source: 'axe',

@@ -30,6 +30,7 @@ const RUN: RunInfo = {
   concurrency: 3,
   settle: { strategy: 'default', quietMs: 150, quietCapMs: 2000, fontsReadyCapMs: 3000, imageDecodeCapMs: 1500 },
   probesEnabled: [],
+  bypassCSP: false,
 };
 
 function page(url: string, overrides: Partial<PageResult> = {}): PageResult {
@@ -51,6 +52,7 @@ function finding(url: string, overrides: Partial<Finding> = {}): Finding {
   return {
     fingerprint: 'aaaaaaaaaaaaaaaa',
     groupKey: 'bbbbbbbbbbbbbbbb',
+  templateKey: 'cccccccccccccccc',
     identityTier: 1,
     identity: { value: 'x', ordinal: 0, context: { nearestLandmark: 'main', headingContext: 'none', inFrame: [] }, domDepth: 5 },
     source: 'axe',
@@ -76,12 +78,13 @@ function report(overrides: {
   run?: Partial<RunInfo>;
 }): Report {
   return {
-    schemaVersion: '1.2',
+    schemaVersion: '1.3',
     tool: { ...TOOL, ...overrides.tool },
     run: { ...RUN, ...overrides.run },
     pages: overrides.pages,
     findings: overrides.findings,
     groups: {},
+    templateGroups: {},
     summary: {
       pages: { total: overrides.pages.length, scanned: overrides.pages.length, errored: 0 },
       findings: {
@@ -98,6 +101,7 @@ function report(overrides: {
         byTier: { 1: overrides.findings.length, 2: 0, 3: 0, 4: 0, 5: 0 },
       },
       groups: 0,
+      templateGroups: 0,
       probeBlindRegions: 0,
     },
   };

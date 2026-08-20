@@ -131,6 +131,12 @@ function findIncompatibleRunConfig(base: Report, head: Report): RunIncompatibili
   if (base.run.colorScheme !== head.run.colorScheme) {
     incompatibilities.push({ reason: 'colorScheme', base: base.run.colorScheme, head: head.run.colorScheme });
   }
+  if (base.run.bypassCSP !== head.run.bypassCSP) {
+    // A bypassed CSP changes what the page can execute (DECISIONS.md D65) -
+    // the same class of phantom-regression risk as mode/viewport/locale/
+    // colorScheme, not a stability concern like concurrency/settle.
+    incompatibilities.push({ reason: 'bypassCSP', base: String(base.run.bypassCSP), head: String(head.run.bypassCSP) });
+  }
 
   return incompatibilities;
 }

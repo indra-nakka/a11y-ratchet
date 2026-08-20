@@ -28,6 +28,7 @@ function buildFamily(count: number): Finding[] {
   return assignments.map((assignment) => ({
     fingerprint: assignment.fingerprint,
     groupKey: 'group-key',
+    templateKey: 'template-key',
     identityTier: 3,
     identity: { value: 'archived', ordinal: assignment.ordinal, context: CONTEXT, domDepth: 6, textContent: 'archived' },
     source: 'axe',

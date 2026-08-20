@@ -34,6 +34,7 @@ import { fetchSitemapUrls } from '../crawl/sitemap.js';
 import { loadConfig } from '../config/load.js';
 import { applySuppressions } from '../config/suppress.js';
 import type { SuppressionEntry } from '../config/schema.js';
+import { buildGroupIndex, buildTemplateIndex } from '../identity/group.js';
 import { urlTemplateFor } from '../identity/fingerprint.js';
 import { A11yRatchetError } from '../errors.js';
 import { AXE_CORE_VERSION, TOOL_NAME, TOOL_VERSION } from '../meta.js';
@@ -136,11 +137,13 @@ export async function runScan(options: ScanOptions): Promise<Report> {
     frontier.tryEnqueue(entry);
   }
 
+  const bypassCSP = options.bypassCSP ?? false;
   const pool = await BrowserPool.launch({
     viewport,
     locale,
     colorScheme,
     concurrency,
+    bypassCSP,
     ...(options.storageState !== undefined ? { storageState: options.storageState } : {}),
   });
 
@@ -205,7 +208,7 @@ export async function runScan(options: ScanOptions): Promise<Report> {
       id: randomUUID(),
       startedAt: runStartedAt.toISOString(),
       durationMs: Date.now() - runStartedAt.getTime(),
-      configHash: hashScanConfig({ viewport, locale, colorScheme, mode, concurrency, settleSettings, config }),
+      configHash: hashScanConfig({ viewport, locale, colorScheme, mode, concurrency, settleSettings, config, bypassCSP }),
       baseUrl,
       mode,
       viewport,
@@ -218,6 +221,7 @@ export async function runScan(options: ScanOptions): Promise<Report> {
       concurrency,
       settle: settleSettings,
       probesEnabled: enabledProbeIds,
+      bypassCSP,
     };
 
     const tool: ToolInfo = {
@@ -230,13 +234,13 @@ export async function runScan(options: ScanOptions): Promise<Report> {
     };
 
     return {
-      schemaVersion: '1.2',
+      schemaVersion: '1.3',
       tool,
       run,
       pages,
       findings,
-      // Day 4/6 (identity/group.ts) builds the real grouped index.
-      groups: {},
+      groups: buildGroupIndex(findings),
+      templateGroups: buildTemplateIndex(findings),
       summary: buildSummary(findings, pages),
     };
   } finally {
@@ -451,7 +455,8 @@ function buildSummary(findings: Finding[], pages: PageResult[]): Summary {
       byRule,
       byTier,
     },
-    groups: 0,
+    groups: new Set(findings.map((f) => f.groupKey)).size,
+    templateGroups: new Set(findings.map((f) => f.templateKey)).size,
     probeBlindRegions: pages.reduce((sum, page) => sum + page.probeBlindRegions.length, 0),
   };
 }

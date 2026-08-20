@@ -7,6 +7,7 @@ function finding(overrides: Partial<Finding>): Finding {
   return {
     fingerprint: 'unset:day-4-fingerprint',
     groupKey: 'unset:day-4-groupkey',
+    templateKey: 'unset:day-10-templatekey',
     identityTier: 1,
     identity: { value: 'x', ordinal: 0, context: { nearestLandmark: 'none', headingContext: 'none', inFrame: [] }, domDepth: 1 },
     source: 'axe',
@@ -30,7 +31,7 @@ function report(findings: Finding[]): Report {
   const needsReview = findings.filter((f) => f.bucket === 'needs-review' && !f.bestPractice).length;
   const bestPractice = findings.filter((f) => f.bestPractice).length;
   return {
-    schemaVersion: '1.2',
+    schemaVersion: '1.3',
     tool: { name: 'a11y-ratchet', version: '0.1.0', axeCoreVersion: '4.13.0', playwrightVersion: '1.62.1', browser: 'chromium', browserVersion: '140.0' },
     run: {
       id: 'run-1',
@@ -49,6 +50,7 @@ function report(findings: Finding[]): Report {
       concurrency: 3,
       settle: { strategy: 'default', quietMs: 150, quietCapMs: 2000, fontsReadyCapMs: 3000, imageDecodeCapMs: 1500 },
       probesEnabled: [],
+      bypassCSP: false,
     },
     pages: [
       {
@@ -65,6 +67,7 @@ function report(findings: Finding[]): Report {
     ],
     findings,
     groups: {},
+    templateGroups: {},
     summary: {
       pages: { total: 1, scanned: 1, errored: 0 },
       findings: {
@@ -84,6 +87,7 @@ function report(findings: Finding[]): Report {
         ),
       },
       groups: 0,
+      templateGroups: 0,
       probeBlindRegions: 0,
     },
   };

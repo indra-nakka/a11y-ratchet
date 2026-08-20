@@ -43,6 +43,8 @@ export interface RenderContextOptions {
   colorScheme?: 'light' | 'dark' | 'no-preference';
   /** Playwright `storageState` path, for scanning behind auth (`00 §4`). */
   storageState?: string;
+  /** Ignore the page's own CSP. Off by default (`DECISIONS.md` D65). */
+  bypassCSP?: boolean;
 }
 
 export interface BrowserPoolOptions extends RenderContextOptions {
@@ -70,6 +72,7 @@ interface ResolvedBrowserPoolOptions {
   locale: string;
   colorScheme: 'light' | 'dark' | 'no-preference';
   storageState?: string;
+  bypassCSP: boolean;
   concurrency: number;
   recycleAfterPages: number;
 }
@@ -85,6 +88,7 @@ export class BrowserPool {
       viewport: options.viewport ?? DEFAULT_VIEWPORT,
       locale: options.locale ?? DEFAULT_LOCALE,
       colorScheme: options.colorScheme ?? DEFAULT_COLOR_SCHEME,
+      bypassCSP: options.bypassCSP ?? false,
       concurrency: options.concurrency ?? DEFAULT_CONCURRENCY,
       recycleAfterPages: options.recycleAfterPages ?? DEFAULT_RECYCLE_AFTER_PAGES,
       ...(options.storageState !== undefined ? { storageState: options.storageState } : {}),
@@ -98,6 +102,11 @@ export class BrowserPool {
 
   get browserVersion(): string {
     return this.browser.version();
+  }
+
+  /** Recorded in `RunInfo` — whether every context this pool hands out ignores the page's own CSP. */
+  get bypassCSP(): boolean {
+    return this.options.bypassCSP;
   }
 
   /**
@@ -140,6 +149,7 @@ export class BrowserPool {
       timezoneId: FIXED_TIMEZONE_ID,
       reducedMotion: FIXED_REDUCED_MOTION,
       deviceScaleFactor: FIXED_DEVICE_SCALE_FACTOR,
+      bypassCSP: this.options.bypassCSP,
       ...(this.options.storageState ? { storageState: this.options.storageState } : {}),
     });
     await context.addInitScript(injectZeroMotionStyle, ZERO_MOTION_CSS);

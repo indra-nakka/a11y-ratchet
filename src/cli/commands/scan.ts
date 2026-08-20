@@ -1,6 +1,7 @@
+import { writeFile } from 'node:fs/promises';
 import { Command } from 'commander';
 
-import { scan } from '../../index.js';
+import { renderReport, scan, writeReport } from '../../index.js';
 import { run } from '../runtime.js';
 import type { CrawlSeed, ScanMode } from '../../types.js';
 
@@ -34,6 +35,7 @@ export function scanCommand(): Command {
       'config file (default: discover a11y-ratchet.config.{ts,js,json} in the working directory)',
     )
     .option('--storage-state <path>', 'Playwright storageState file, for scanning behind auth')
+    .option('--bypass-csp', 'ignore the page\'s own CSP - needed when a strict script-src blocks axe injection')
 
     .option('--viewport <WxH>', 'viewport size, recorded in the report', '1280x800')
     .option('--locale <locale>', 'browser locale, recorded in the report', 'en-US')
@@ -70,7 +72,7 @@ Notes:
           ...(options.sitemap ? { sitemap: options.sitemap } : {}),
           ...(options.urlList ? { urlList: options.urlList } : {}),
         };
-        await scan({
+        const report = await scan({
           seed,
           crawl: {
             ...(options.include ? { include: options.include } : {}),
@@ -84,7 +86,18 @@ Notes:
           concurrency: Number(options.concurrency),
           ...(options.storageState ? { storageState: options.storageState } : {}),
           ...(options.config ? { configPath: options.config } : {}),
+          ...(options.bypassCsp !== undefined ? { bypassCSP: options.bypassCsp } : {}),
         });
+
+        if (options.out) {
+          await writeReport(report, options.out);
+        }
+        if (options.html) {
+          await writeFile(options.html, await renderReport(report, { format: 'html' }), 'utf8');
+        }
+        if (!options.quiet) {
+          console.log(await renderReport(report, { format: 'summary' }));
+        }
       }),
     );
 }
@@ -103,4 +116,8 @@ interface RawScanCliOptions {
   mode: string;
   storageState?: string;
   config?: string;
+  bypassCsp?: boolean;
+  out?: string;
+  html?: string;
+  quiet?: boolean;
 }

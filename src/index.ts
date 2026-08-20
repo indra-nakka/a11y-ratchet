@@ -17,6 +17,7 @@ import { checkBaseline as checkBaselineImpl, regenerateBaseline as regenerateBas
 import { runCheckConfig } from './config/check.js';
 import { runDiff } from './diff/run.js';
 import { renderDiffSummary } from './report/diffSummary.js';
+import { renderReportHtml } from './report/html/render.js';
 import { readReport as readReportFromDisk, writeReport as writeReportToDisk } from './report/json.js';
 import { renderSummary } from './report/summary.js';
 import { runScan } from './scan/run.js';
@@ -113,16 +114,21 @@ export function exitCodeForScan(_report: Report, _failOn?: number): ExitCode {
 
 /**
  * Render a report as HTML, JSON, or a terminal summary. The HTML output is
- * self-contained and must pass its own scan with zero violations (Day 11).
+ * self-contained (`report/html/render.ts`) and must pass its own scan with
+ * zero violations — that self-test is Day 11's job, not built here.
  *
- * `format: 'summary'` as of Day 3 (`report/summary.ts`); `'html'` and
- * `'json'` are Days 10 and 11.
+ * `format: 'summary'` as of Day 3 (`report/summary.ts`); `'html'` as of
+ * Day 10; `'json'` is still Day 11 (`report/json.ts` already has
+ * `readReport`/`writeReport` for the file-based path this scopes around).
  */
 export function renderReport(report: Report, options: ReportOptions): Promise<string> {
   if (options.format === 'summary') {
     return Promise.resolve(renderSummary(report));
   }
-  throw new NotImplementedError(`renderReport() format "${options.format}"`, 'Days 10 and 11');
+  if (options.format === 'html') {
+    return Promise.resolve(renderReportHtml(report));
+  }
+  throw new NotImplementedError(`renderReport() format "${options.format}"`, 'Day 11');
 }
 
 /**

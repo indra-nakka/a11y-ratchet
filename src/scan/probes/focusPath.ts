@@ -30,7 +30,7 @@
 import type { Page } from 'playwright';
 
 import { TEST_HOOK_ATTRIBUTES } from '../axe.js';
-import { computeGroupKey } from '../../identity/group.js';
+import { computeGroupKey, computeTemplateKey } from '../../identity/group.js';
 import {
   assignFingerprints,
   GENERATED_ID_PATTERNS,
@@ -151,6 +151,8 @@ interface CandidateFinding {
   identityTier: Finding['identityTier'];
   identityValue: string;
   context: ContextSignal;
+  /** Tier 5 candidate, kept through to `buildFinding` for `templateKey` (`01 §8`) - not part of `identity`/the fingerprint's own identity value unless Tier 5 actually won. */
+  structuralPath: string;
   domDepth: number;
   textContent?: string;
   accessibleName?: string;
@@ -182,6 +184,7 @@ function resolveCandidate(ruleId: string, impact: Impact, snapshot: InPageSnapsh
     identityTier: tier,
     identityValue: value,
     context,
+    structuralPath: snapshot.structuralPath,
     domDepth: snapshot.domDepth,
     ...(snapshot.textContent.trim() ? { textContent: normaliseText(snapshot.textContent) } : {}),
     ...(snapshot.accessibleName !== undefined ? { accessibleName: normaliseText(snapshot.accessibleName) } : {}),
@@ -226,6 +229,12 @@ function buildFinding(
     identityValue: candidate.identityValue,
     landmarkRole: candidate.context.nearestLandmark,
   });
+  const templateKey = computeTemplateKey({
+    ruleId: candidate.ruleId,
+    source: 'probe',
+    landmarkRole: candidate.context.nearestLandmark,
+    structuralPath: candidate.structuralPath,
+  });
 
   const criterionId = candidate.ruleId === FOCUS_OBSCURED_RULE_ID ? '2.4.11' : '2.1.2';
   const criterion = criterionById(criterionId);
@@ -233,6 +242,7 @@ function buildFinding(
   return {
     fingerprint: assignment.fingerprint,
     groupKey,
+    templateKey,
     identityTier: candidate.identityTier,
     identity,
     source: 'probe',

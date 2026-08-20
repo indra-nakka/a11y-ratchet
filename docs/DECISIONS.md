@@ -1501,3 +1501,215 @@ sample at all - Vue's docs happen not to have one in the crawled pages -
 so this run cannot speak to that failure mode's real-world rate either;
 `08-focus-trap`'s fixture is what demonstrates the probe gets that
 specific case right, not this crawl.
+
+---
+
+## 2026-08-20 — Day 10
+
+### D65. Carryover: `bypassCSP` — a run-config field, not silently always-on
+
+Day 9 found that `developer.mozilla.org`'s strict `script-src` CSP (no
+`unsafe-inline`, no matching hash) silently blocks axe-core's
+`addScriptTag` injection, failing the page before anything scans. Added
+`ScanOptions.bypassCSP` (default `false`, threaded through
+`scan/browser.ts`'s `BrowserPool` into Playwright's `newContext({
+bypassCSP })`), recorded unconditionally in `RunInfo.bypassCSP`, and added
+as a fifth `RunIncompatibilityReason` alongside mode/viewport/locale/
+colorScheme (`diff/run.ts`) - a bypassed CSP changes what the page can
+execute, the same class of phantom-regression risk, not a stability
+concern like concurrency/settle.
+
+**Verified, not assumed:** re-ran the exact MDN page from Day 9 through
+the built CLI/library both ways. Without `bypassCSP`: `error.kind:
+'navigation-failed'`, same as Day 9. With it: `error` absent, 5 real
+findings. `run.bypassCSP` correctly `false`/`true` on each side.
+
+One note on today's instruction: it referenced "(paste block above)" for
+this field's shape, which did not arrive in this conversation. Implemented
+by pattern-matching the existing run-config fields
+(`viewport`/`locale`/`colorScheme`/`storageState`) rather than guessing at
+unseen syntax, since the intent (a boolean, off by default, recorded and
+diff-incompatible) was unambiguous from the rest of the sentence. Flagged
+here rather than silently assumed complete.
+
+### D66. Carryover: the focus-path probe already measures geometry on every step, scroll or not — verified against the Vue crawl, not assumed
+
+Today's first carryover asked what fraction of Day 9's Vue.js Tab steps
+involved no scroll at all, and whether the probe evaluated geometry on
+those steps regardless - because a probe that only measures post-scroll is
+blind to the more common real case: an element already on-screen (no
+scroll needed) sitting under a permanently-fixed overlay (a cookie banner,
+a promo bar) rather than one freshly scrolled under a sticky header.
+
+**Measured, via a standalone Playwright script against the same 8 Vue.js
+pages (not the shipped probe's own code path, to avoid begging the
+question):** of 458 total Tab steps, **416 (90.8%) involved no scroll at
+all**, and all 416 still returned a valid, non-empty `getBoundingClientRect()`.
+
+**Then confirmed against the actual shipped code, not just the
+measurement:** `src/scan/probes/focusPath.ts`'s `probeStepInPage` calls
+`checkObscured(el)` unconditionally for every `'stepped'` result (line
+~666-667) - it is never gated on whether `waitForScrollSettleInPage`
+detected movement. The scroll-settle wait itself always runs first
+regardless (`§6.2`'s literal instruction), and simply returns almost
+immediately when there is nothing to wait for. **The probe was never
+blind to the no-scroll case; Day 9 built it right without this specific
+number being checked at the time.** Worth having checked anyway - "the
+code looks like it should be unconditional" and "90.8% of real steps
+confirm it actually is" are different kinds of confidence.
+
+### D67. Carryover: the precise keyboard-trap cycle predicate, stated plainly
+
+Today's second carryover asked for the exact condition that separates a
+legitimate tab-order wrap from a genuine trap, stated precisely rather than
+left implicit in D63's prose. From `probeStepInPage`'s actual logic:
+
+> A step classifies as a **cycle** iff the shadow-aware deep active element
+> read after a real `Tab` press (1) is not `null`/`document.body` (has not
+> left the document - that path is `'left-document'`, handled separately),
+> (2) is not reference-equal to the immediately-previous visited element
+> (that path is `'unchanged'`, `§6.3`(b) - a different signal), and (3) IS
+> reference-equal to some element already present in this page's
+> `visited` set from earlier in the same traversal.
+
+This relies on one invariant about unmodified browsers, not asserted by
+this codebase but relied on by it: native Tab-order traversal is
+monotonic and terminates by leaving the document - it does not, on its
+own, revisit an element it has already visited in one direction. A cycle
+back to an earlier element is therefore only reachable via the page's own
+script redirecting focus, which is either a deliberate (possibly
+escape-less) focus trap or a bug; `§6.3`(c)'s literal "without covering
+all known tabbables" qualifier was already found wrong and dropped for
+this reason on Day 9 (D63) - restated here as the exact predicate, not
+just the conclusion.
+
+### D68. Carryover: the Vue keyboard trap — drafted, not filed
+
+Asked before posting: filing a public GitHub issue is an externally
+visible, unilateral action taken on the user's behalf under their
+authenticated account, not a reversible local edit. Drafted the issue
+(repo `vuejs/docs`, title "Embedded code editor traps keyboard focus (no
+way out via Tab or Escape)", reproduction steps, and the manual
+verification from D64) and asked whether to file it. Answered: draft
+only. Saved to the session scratchpad, not filed, not committed to this
+repo (it is not project content).
+
+### D69. `templateKey` and the two group indexes `Report.groups`/`Report.templateGroups` were never actually built
+
+`identity/group.ts` gains `computeTemplateKey()` per `01 §8`: strips the
+`[N]` same-tag-sibling-index suffix from each `structuralPath` segment
+(`li[3] > article[0] > a[0]` → `li > article > a`), then hashes
+`[ruleId, source, landmarkRole, indexStrippedStructuralPath]` - strictly
+weaker than `groupKey`, which still varies per instance since different
+instances of a template correctly have different accessible names.
+Wired into both finding producers (`scan/normalise.ts` for axe,
+`scan/probes/focusPath.ts` for the probe - the latter needed
+`CandidateFinding` to carry `structuralPath` through to `buildFinding`,
+which it didn't before today).
+
+**Found while wiring it in: `Report.groups` had been a hardcoded `{}`
+since Day 4/6 - the `GroupIndex`/`FindingGroup` types existed, nothing
+ever built them.** `identity/group.ts` now exports `buildGroupIndex()` and
+`buildTemplateIndex()`, both called from `scan/run.ts` in place of the old
+stub. `Summary.groups` was also hardcoded `0`; now a real count. Neither
+gap was in any single day's stated scope before today, so neither was
+"someone's bug" - `groupKey`/`templateKey` simply had no consumer to
+expose it not being wired until the report needed one.
+
+**One field's exact meaning had to be decided, not just implemented:**
+`FindingGroup.uniqueElementCount`, from `01 §8`'s own worked example
+("Affects 43 pages · 1 unique element"). Counting distinct (unsuffixed)
+fingerprints does NOT give "1" for that example - `urlTemplate` and
+`headingContext` are both fingerprint inputs and both vary per page for a
+shared nav/footer element, so a 43-page group would count 43 there, not
+1. Implemented as the count of distinct `Finding.selector` values instead
+- a display-only answer to a display-only question ("how many differently
+SHAPED occurrences," not "how many pages") - documented inline as an
+interpretation, since the field predates today and its exact intended
+semantics were never written down beyond the one worked example.
+
+**Second bug the report's own tests caught, not reasoned through in
+advance:** `buildGroupIndex`/`buildTemplateIndex` originally grouped ALL
+findings, including suppressed ones. A group/template built entirely from
+a suppressed finding rendered as an empty shell in the HTML report - "1
+template defect (1 instance)" with a completely empty instance list under
+it, since `report/html/render.ts` separately (and correctly) excludes
+suppressed findings when populating each group's instance list. Fixed by
+excluding suppressed findings from both index-builders, mirroring the
+gate's own `!finding.suppressed` filter (`diff/gate.ts`) - these two
+indexes represent the actionable defect landscape; `Report.findings`
+alone is still the complete, nothing-dropped array (`CLAUDE.md` invariant
+2 is about that array, not about every derived view).
+
+`Report.schemaVersion` bumped `1.2` → `1.3` for `Finding.templateKey` and
+`Report.templateGroups`.
+
+### D70. `gate.reason` counts at template level, with instance counts alongside — never "N violations" for one repeated defect
+
+`diff/gate.ts`'s `buildReasonSentence` rewritten to group `gatingNew` /
+`impactIncreased` / `moved` / `fixed` by `templateKey` before describing
+them: `"1 new template defect (43 instances) on 12 pages (1.4.3)"`, never
+`"43 new violations"`. `countedAgainstGate` (what actually decides
+pass/fail) is unchanged - every individual finding still counts and still
+blocks; only the SENTENCE describing that count changed, so a
+43-page-wide template regression reads as the one bug it is rather than
+as 43 separate ones. Applied uniformly to all four categories (new,
+impact-increased, moved, fixed) for internal consistency, not just the
+"new" case the instruction's example named.
+
+### D71. The self-contained HTML report (`report/html/render.ts`)
+
+Default view is the TEMPLATE tier (`01 §8`), expandable to `groupKey`,
+expandable to individual instance - implemented as nested native
+`<details>`/`<summary>` disclosure widgets, zero JavaScript. This was the
+direct, load-bearing reason for choosing that markup, not a stylistic
+preference: a disclosure widget's accessible name, expand/collapse state
+and keyboard operability (Enter/Space on the `<summary>`) are all native
+browser behaviour, so "report polish is cut line #1" (`00 §7`) and "the
+report's own accessibility is never cut" (same section) stop being in
+tension - the interactive part IS the accessible part, for free, instead
+of something to build and then separately verify.
+
+Suppressed findings get their own collapsed section (reason, category,
+owner, expiry always visible once opened) and are excluded from the main
+template/group/instance tree - tagged and retained in `Report.findings`
+per invariant 2, but not presented as "defects to look at" in the same
+table as unsuppressed ones. `PageResult.settleDegraded` and
+`probeBlindRegions` are surfaced per page as inline flags, not folded into
+a generic "warnings" bucket a reader could skim past. Identity tier
+distribution (`Summary.findings.byTier`) is shown as its own table in the
+Summary section, matching `report/summary.ts`'s existing terminal
+rendering of the same signal (D38).
+
+**Verified against a real, non-trivial report, not a synthetic empty
+one:** `test/report/html/self-scan.test.ts` scans `01-images` (real
+planted defects) with a real suppression configured, renders the report,
+writes it to a temp file, and scans THAT FILE (`file://`, not a network
+request - consistent with "no test touches the network") with the actual
+shipped `scan()`. **Zero violations, zero best-practice findings on the
+first run**, exercising the findings tree, the suppressed table, and the
+summary section all at once - not just an empty-report shell that would
+pass trivially by having nothing to render. Full self-test enforcement (a
+release gate) is still Day 11's job; today verified honestly rather than
+deferring the check itself along with the gate.
+
+**`--html`/`--out` wired into `cli/commands/scan.ts`** (previously
+neither was - `scan()`'s result was discarded entirely, a D21-style gap).
+`--quiet`/default terminal printing wired alongside them, since a report
+you cannot produce is not meaningfully "built." `--ungrouped`,
+`--fail-on`, and the rest of the still-dangling flags (`--viewport`,
+`--probes`, …) are unchanged - out of today's stated scope
+(`report/html/` and `templateKey`), not silently expanded into.
+
+### D72. `templateKey` real-site verification: 521 groups → 14 templates, 37.2×
+
+Today's scope's own acceptance test: re-ran the exact Day 7 crawl (`books.
+toscrape.com`, 30 pages, same settings) that produced 521 `groupKey`s, and
+counted `templateKey`s over the identical result. **521 → 14, a 37.2×
+reduction** - comfortably "roughly an order of magnitude fewer," and
+inside the 20-40-per-site range `00 §9`/`03 §2` budget for, not above it.
+The largest single template (`color-contrast`, 50 groups collapsed to one
+row) alone accounts for 1,473 instances across all 30 pages - exactly the
+"50 regressions for one template bug" failure shape `01 §8` describes,
+now collapsed to one line in both the gate reason and the report's
+findings tree.

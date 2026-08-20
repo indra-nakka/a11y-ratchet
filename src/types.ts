@@ -288,6 +288,19 @@ export interface Finding {
    * site-wide nav defect collapses to one group instead of one per page.
    */
   groupKey: string;
+  /**
+   * Stable across INSTANCES of the same template (`01 §8`, added Day 10 —
+   * `DECISIONS.md` D69). Strictly weaker than `groupKey`: strips sibling
+   * indices out of `structuralPath` so N instances of one templated
+   * component (product cards, search results, table rows) - each with a
+   * different `accessibleName`, and therefore correctly a different
+   * `groupKey`, since they ARE different elements - collapse to one
+   * `templateKey` anyway, because they are the same underlying defect
+   * repeated by a template. `groupKey` alone produced 521 distinct groups
+   * on a 30-page catalogue site (`DECISIONS.md` D53); `templateKey` is the
+   * tier that stays readable at that scale.
+   */
+  templateKey: string;
   identityTier: IdentityTier;
   identity: FindingIdentity;
   source: Source;
@@ -372,6 +385,39 @@ export interface FindingGroup {
  * re-derive grouping and then disagree about it.
  */
 export type GroupIndex = Record<string, FindingGroup>;
+
+/**
+ * One row of the report's DEFAULT view (`01 §8`, Day 10) - one templated
+ * defect, however many instances it has:
+ *
+ *   [serious] color-contrast — 1.4.3 Contrast (Minimum) [AA]
+ *     1 template defect · 43 instances · 12 pages
+ *     main > ol > li > article > a
+ */
+export interface TemplateGroup {
+  templateKey: string;
+  ruleId: string;
+  source: Source;
+  bucket: Bucket;
+  bestPractice: boolean;
+  /** Highest impact among members. Collapsing to a template must never hide a critical. */
+  impact: Impact;
+  criteria: SuccessCriterion[];
+  /** Display selector taken from the first member in document order. */
+  exampleSelector: string;
+  /** Distinct `groupKey`s collapsed under this template. */
+  groupKeys: string[];
+  /** Distinct member fingerprints - every instance, across every group. */
+  fingerprints: string[];
+  /** Distinct page URLs, in crawl order. */
+  urls: string[];
+  pageCount: number;
+  /** `fingerprints.length`, named explicitly so a renderer never has to infer "instance" from a fingerprint array's shape. */
+  instanceCount: number;
+}
+
+/** Template-level index, keyed by `templateKey` - the report's default tier (`01 §8`). */
+export type TemplateGroupIndex = Record<string, TemplateGroup>;
 
 /* -------------------------------------------------------------------------- */
 /* Pages                                                                      */
@@ -510,6 +556,15 @@ export interface RunInfo {
   settle: SettleSettings;
   /** Probe ids that ran, e.g. `["probe/focus-obscured", "probe/keyboard-trap"]`. */
   probesEnabled: string[];
+  /**
+   * Whether the browser context ignored the page's own CSP (`DECISIONS.md`
+   * D65) - without it, axe-core's script-tag injection is silently blocked
+   * on a strict `script-src` (found against `developer.mozilla.org`, Day 9)
+   * and the page errors before scanning anything. Off by default: it
+   * changes what the page can execute, so it belongs in `incompatibleRunConfig`
+   * the same as viewport/locale/colorScheme, not silently always-on.
+   */
+  bypassCSP: boolean;
 }
 
 /** Run totals. Every field is generated; none is ever written by hand. */
@@ -543,6 +598,8 @@ export interface Summary {
     byTier: Record<IdentityTier, number>;
   };
   groups: number;
+  /** Distinct `templateKey`s (`01 §8`) - the number that should stay in the 20-40 range `00 §9` budgets for, not `groups`. */
+  templateGroups: number;
   probeBlindRegions: number;
 }
 
@@ -564,8 +621,8 @@ export interface Summary {
  * before applying `bucket` and `bestPractice`.
  */
 export interface Report {
-  /** Bumped to `'1.2'` for `PageResult.settleDegraded` (`DECISIONS.md` D55). */
-  schemaVersion: '1.2';
+  /** Bumped to `'1.3'` for `Finding.templateKey` and `Report.templateGroups` (`DECISIONS.md` D69). */
+  schemaVersion: '1.3';
   tool: ToolInfo;
   run: RunInfo;
   /** Every page attempted, including ones that errored. */
@@ -573,6 +630,8 @@ export interface Report {
   /** The single complete set. Suppressed findings stay here, tagged, not deleted. */
   findings: Finding[];
   groups: GroupIndex;
+  /** The report's default tier (`01 §8`, Day 10) - one row per templated defect, however many instances. */
+  templateGroups: TemplateGroupIndex;
   summary: Summary;
 }
 
@@ -641,7 +700,7 @@ export interface RunRef {
  * excluded: `01 §9` treats those as a stability concern, not a correctness
  * one, so they land in `gate.warnings` instead of refusing the diff.
  */
-export type RunIncompatibilityReason = 'mode' | 'viewport' | 'locale' | 'colorScheme';
+export type RunIncompatibilityReason = 'mode' | 'viewport' | 'locale' | 'colorScheme' | 'bypassCSP';
 
 export interface RunIncompatibility {
   reason: RunIncompatibilityReason;
@@ -740,6 +799,13 @@ export interface ScanOptions {
   settle?: Partial<SettleSettings>;
   /** Playwright `storageState` path, for scanning behind auth. */
   storageState?: string;
+  /**
+   * Ignore the page's own CSP. Off by default - it changes what the page
+   * can execute, so it is recorded in `RunInfo` and refuses a diff against
+   * a run without it (`DECISIONS.md` D65). Needed for a strict `script-src`
+   * that would otherwise silently block axe-core's injection.
+   */
+  bypassCSP?: boolean;
   /** Probe ids to run. Omit for the default set; `[]` disables probes. */
   probes?: string[];
   /** Include axe best-practice rules. Off by default (`01 §7`). */

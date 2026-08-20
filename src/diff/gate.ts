@@ -68,8 +68,8 @@ export function computeGate(findings: DiffFindings, options: GateOptions): DiffG
     passed,
     gatingNew,
     impactIncreased,
-    movedCount: findings.moved.length,
-    fixedCount: findings.fixed.length,
+    moved: findings.moved,
+    fixed: findings.fixed,
   });
 
   return { passed, reason, countedAgainstGate, warnings };
@@ -79,21 +79,28 @@ interface ReasonInput {
   passed: boolean;
   gatingNew: Finding[];
   impactIncreased: { from: Finding; to: Finding }[];
-  movedCount: number;
-  fixedCount: number;
+  moved: { from: Finding; to: Finding }[];
+  fixed: Finding[];
 }
 
-/** `gate.reason` must read like a sentence a person wrote (`§8`) - this is what most people will ever see of the tool. */
+/**
+ * `gate.reason` counts at TEMPLATE level, with instance counts alongside
+ * (`01 §8`, Day 10) - "1 new template defect (43 instances)", never "43 new
+ * violations". A gate that reports raw finding counts for a page whose
+ * catalogue template regressed once reads as a 43-violation catastrophe;
+ * it is one bug, still one bug at 43 pages. `countedAgainstGate` (above) is
+ * unaffected by this - the gate still counts and blocks on every individual
+ * finding, this only changes what the SENTENCE says about that count.
+ */
 function buildReasonSentence(input: ReasonInput): string {
-  const plural = (n: number): string => (n === 1 ? '' : 's');
-
   if (input.passed) {
     // No "Gate passed" prefix - `reason` is a standalone factual sentence,
     // same as the failing case below; callers (the CLI, a report) already
     // say pass/fail alongside it and shouldn't have to see it twice.
-    const parts: string[] = [];
-    if (input.movedCount > 0) parts.push(`${input.movedCount} moved`);
-    if (input.fixedCount > 0) parts.push(`${input.fixedCount} fixed`);
+    const parts = [
+      describeTemplateCount('moved template', input.moved.map((pair) => pair.to.templateKey)),
+      describeTemplateCount('fixed template', input.fixed.map((f) => f.templateKey)),
+    ].filter((part): part is string => part !== null);
     return parts.length > 0 ? `${parts.join('; ')}.` : 'No new violations.';
   }
 
@@ -109,15 +116,36 @@ function buildReasonSentence(input: ReasonInput): string {
   const parts: string[] = [];
   if (input.gatingNew.length > 0) {
     const criteriaSuffix = criteria.size > 0 ? ` (${[...criteria].sort().join(', ')})` : '';
+    const plural = (n: number): string => (n === 1 ? '' : 's');
     parts.push(
-      `${input.gatingNew.length} new violation${plural(input.gatingNew.length)} on ${pageCount} page${plural(pageCount)}${criteriaSuffix}`,
+      `${describeTemplateCount('new template defect', input.gatingNew.map((f) => f.templateKey))} on ` +
+        `${pageCount} page${plural(pageCount)}${criteriaSuffix}`,
     );
   }
-  if (input.impactIncreased.length > 0) {
-    parts.push(`${input.impactIncreased.length} impact increase${plural(input.impactIncreased.length)}`);
-  }
-  if (input.movedCount > 0) parts.push(`${input.movedCount} moved`);
-  if (input.fixedCount > 0) parts.push(`${input.fixedCount} fixed`);
+  const impactPart = describeTemplateCount(
+    'template impact increase',
+    input.impactIncreased.map((pair) => pair.to.templateKey),
+  );
+  if (impactPart) parts.push(impactPart);
+  const movedPart = describeTemplateCount('moved template', input.moved.map((pair) => pair.to.templateKey));
+  if (movedPart) parts.push(movedPart);
+  const fixedPart = describeTemplateCount('fixed template', input.fixed.map((f) => f.templateKey));
+  if (fixedPart) parts.push(fixedPart);
 
   return `${parts.join('; ')}.`;
+}
+
+/**
+ * `"1 new template defect (43 instances)"` - `label` is already the
+ * singular noun phrase ("new template defect", "fixed template"); this
+ * pluralises it and appends the instance count. `null` when `templateKeys`
+ * is empty, so callers can `.filter(Boolean)` without an empty `"0 ..."`
+ * clause ever reaching the sentence.
+ */
+function describeTemplateCount(label: string, templateKeys: readonly string[]): string | null {
+  if (templateKeys.length === 0) return null;
+  const plural = (n: number): string => (n === 1 ? '' : 's');
+  const templateCount = new Set(templateKeys).size;
+  const instanceCount = templateKeys.length;
+  return `${templateCount} ${label}${plural(templateCount)} (${instanceCount} instance${plural(instanceCount)})`;
 }

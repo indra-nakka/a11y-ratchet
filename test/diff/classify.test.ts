@@ -7,6 +7,7 @@ function finding(overrides: Partial<Finding> = {}): Finding {
   return {
     fingerprint: 'aaaaaaaaaaaaaaaa',
     groupKey: 'bbbbbbbbbbbbbbbb',
+  templateKey: 'cccccccccccccccc',
     identityTier: 1,
     identity: { value: 'x', ordinal: 0, context: { nearestLandmark: 'main', headingContext: 'none', inFrame: [] }, domDepth: 5 },
     source: 'axe',

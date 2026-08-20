@@ -11,7 +11,7 @@ import { dirname } from 'node:path';
 import { A11yRatchetError } from '../errors.js';
 import type { Report } from '../types.js';
 
-const SUPPORTED_SCHEMA_VERSION = '1.2';
+const SUPPORTED_SCHEMA_VERSION = '1.3';
 
 /** Reads a report or baseline from disk, validating its `schemaVersion`. */
 export async function readReport(path: string): Promise<Report> {
