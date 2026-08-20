@@ -521,6 +521,14 @@ export interface Summary {
     byLevel: Record<Level, number>;
     /** Keyed by rule id. */
     byRule: Record<string, number>;
+    /**
+     * Which identity tier each finding resolved to (`02 §3.1`). A standing
+     * output, not just a Day 5 investigation artefact (`DECISIONS.md` D38) —
+     * a run landing mostly at tiers 4-5 is a signal the matcher (Day 6)
+     * needs to know about, not something to notice only when someone thinks
+     * to check.
+     */
+    byTier: Record<IdentityTier, number>;
   };
   groups: number;
   probeBlindRegions: number;
@@ -544,7 +552,8 @@ export interface Summary {
  * before applying `bucket` and `bestPractice`.
  */
 export interface Report {
-  schemaVersion: '1.0';
+  /** Bumped to `'1.1'` for `Summary.findings.byTier` (`DECISIONS.md` D38). */
+  schemaVersion: '1.1';
   tool: ToolInfo;
   run: RunInfo;
   /** Every page attempted, including ones that errored. */

@@ -31,6 +31,7 @@ import { A11yRatchetError, NotImplementedError } from '../errors.js';
 import { AXE_CORE_VERSION, TOOL_NAME, TOOL_VERSION } from '../meta.js';
 import type {
   Finding,
+  IdentityTier,
   Impact,
   Level,
   PageResult,
@@ -132,7 +133,7 @@ export async function runScan(options: ScanOptions): Promise<Report> {
     };
 
     return {
-      schemaVersion: '1.0',
+      schemaVersion: '1.1',
       tool,
       run,
       pages: [pageResult.page],
@@ -219,13 +220,15 @@ function buildSummary(findings: Finding[], pages: PageResult[]): Summary {
   const byLevel: Record<Level, number> = { A: 0, AA: 0, AAA: 0 };
   const byCriterion: Record<string, number> = {};
   const byRule: Record<string, number> = {};
+  const byTier: Record<IdentityTier, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
 
   for (const finding of findings) {
     bySource[finding.source] += 1;
     byImpact[finding.impact] += 1;
     byRule[finding.ruleId] = (byRule[finding.ruleId] ?? 0) + 1;
-    // Day 3 (wcag/criteria.ts) populates Finding.criteria; empty until then,
-    // so these two tallies are all zero for now — correctly, not fabricated.
+    byTier[finding.identityTier] += 1;
+    // Best-practice findings carry no SC (criteria: []), so they correctly
+    // contribute to neither tally below.
     for (const criterion of finding.criteria) {
       byLevel[criterion.level] += 1;
       byCriterion[criterion.id] = (byCriterion[criterion.id] ?? 0) + 1;
@@ -246,6 +249,7 @@ function buildSummary(findings: Finding[], pages: PageResult[]): Summary {
       byCriterion,
       byLevel,
       byRule,
+      byTier,
     },
     groups: 0,
     probeBlindRegions: pages.reduce((sum, page) => sum + page.probeBlindRegions.length, 0),

@@ -30,7 +30,7 @@ function report(findings: Finding[]): Report {
   const needsReview = findings.filter((f) => f.bucket === 'needs-review' && !f.bestPractice).length;
   const bestPractice = findings.filter((f) => f.bestPractice).length;
   return {
-    schemaVersion: '1.0',
+    schemaVersion: '1.1',
     tool: { name: 'a11y-ratchet', version: '0.1.0', axeCoreVersion: '4.13.0', playwrightVersion: '1.62.1', browser: 'chromium', browserVersion: '140.0' },
     run: {
       id: 'run-1',
@@ -77,6 +77,10 @@ function report(findings: Finding[]): Report {
         byCriterion: {},
         byLevel: { A: 0, AA: findings.length, AAA: 0 },
         byRule: {},
+        byTier: findings.reduce(
+          (tally, f) => ({ ...tally, [f.identityTier]: (tally[f.identityTier] ?? 0) + 1 }),
+          { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as Record<number, number>,
+        ),
       },
       groups: 0,
       probeBlindRegions: 0,

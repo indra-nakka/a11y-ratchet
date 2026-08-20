@@ -20,6 +20,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import type { Page } from 'playwright';
 
+import { GENERATED_ID_PATTERNS } from '../identity/fingerprint.js';
 import type { Impact } from '../types.js';
 
 const require = createRequire(import.meta.url);
@@ -99,7 +100,15 @@ export async function injectAxeIntoAllFrames(page: Page): Promise<void> {
  */
 export async function runAxe(page: Page, options: AxeRunOptions): Promise<RawFinding[]> {
   const tags = options.includeBestPractice ? [...WCAG_A_AA_TAGS, BEST_PRACTICE_TAG] : WCAG_A_AA_TAGS;
-  return page.evaluate(collectRawFindings, { tags, testHookAttributes: TEST_HOOK_ATTRIBUTES });
+  // RegExp objects don't survive page.evaluate's serialisation - source/flags
+  // do. This keeps GENERATED_ID_PATTERNS defined exactly once, in
+  // identity/fingerprint.ts, rather than duplicating the pattern list here
+  // for the Tier 5 stable-ancestor check (DECISIONS.md D28's fix).
+  const generatedIdPatterns = GENERATED_ID_PATTERNS.map((pattern) => ({
+    source: pattern.source,
+    flags: pattern.flags,
+  }));
+  return page.evaluate(collectRawFindings, { tags, testHookAttributes: TEST_HOOK_ATTRIBUTES, generatedIdPatterns });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -136,11 +145,15 @@ interface InPageAxe {
     options: Record<string, unknown>,
   ): Promise<{ violations: InPageRuleResult[]; incomplete: InPageRuleResult[] }>;
   commons: { text: { accessibleText(element: Element): string } };
+  /** Builds the internal tree cache `accessibleText` needs. Throws if already set up. */
+  setup(node: Document): unknown;
+  teardown(): void;
 }
 
 async function collectRawFindings(args: {
   tags: string[];
   testHookAttributes: string[];
+  generatedIdPatterns: Array<{ source: string; flags: string }>;
 }): Promise<RawFinding[]> {
   const axe = (window as unknown as { axe: InPageAxe }).axe;
 
@@ -250,25 +263,39 @@ async function collectRawFindings(args: {
   }
 
   // Raw text - normalisation (02 §3.3) happens in Node, in identity/fingerprint.ts.
-  // Searches only within the element's own shadow root when it's inside one
-  // (or the top document otherwise) - a heading outside the component's
-  // shadow boundary isn't really "context" for content encapsulated inside
-  // it. Not exercised by any current fixture; a defensible scope decision,
-  // not a proven-correct one.
+  //
+  // Corrected per golden case 11 (DECISIONS.md D33): the first version
+  // searched only within the element's own shadow root, reasoning that a
+  // heading outside a component's shadow boundary isn't "context" for
+  // content encapsulated inside it. That broke identity across exactly the
+  // move the case exists to test - moving an element into a shadow root
+  // with no heading of its own made headingContext flip from a real value
+  // to 'none', when nothing about the element's position actually changed.
+  //
+  // Searches the element's own scope (shadow root or document) first; if no
+  // heading precedes it there, escalates to the HOST element's position in
+  // the enclosing scope, recursing outward through nested shadow roots.
+  // compareDocumentPosition doesn't work across a shadow boundary, so each
+  // scope is searched independently rather than as one flattened tree.
   function nearestPrecedingHeadingText(el: Element): string {
-    const root = el.getRootNode();
-    const searchRoot = root instanceof ShadowRoot || root instanceof Document ? root : document;
-    const headings = Array.from(searchRoot.querySelectorAll(HEADING_SELECTOR));
-    let candidate: Element | null = null;
-    for (const heading of headings) {
-      const position = heading.compareDocumentPosition(el);
-      if (position & Node.DOCUMENT_POSITION_FOLLOWING) {
-        candidate = heading;
-      } else {
-        break; // headings are in document order; none after this one can precede `el`.
+    let anchor: Element | null = el;
+    while (anchor) {
+      const root = anchor.getRootNode();
+      const searchRoot = root instanceof ShadowRoot ? root : document;
+      const headings = Array.from(searchRoot.querySelectorAll(HEADING_SELECTOR));
+      let candidate: Element | null = null;
+      for (const heading of headings) {
+        const position = heading.compareDocumentPosition(anchor);
+        if (position & Node.DOCUMENT_POSITION_FOLLOWING) {
+          candidate = heading;
+        } else {
+          break; // headings are in document order; none after this one can precede `anchor`.
+        }
       }
+      if (candidate) return candidate.textContent ?? 'none';
+      anchor = root instanceof ShadowRoot ? root.host : null;
     }
-    return candidate?.textContent ?? 'none';
+    return 'none';
   }
 
   function elementDomDepth(el: Element): number {
@@ -281,10 +308,15 @@ async function collectRawFindings(args: {
     return depth;
   }
 
-  // axe.commons.text.accessibleText can throw for some element/attribute
-  // shapes when called outside an active axe.run() evaluation (observed on
-  // an <area> inside an image map, against axe-core 4.13.0) - one element's
-  // accessible-name computation must never take down the whole page scan.
+  // axe.commons.text.accessibleText needs axe's internal tree cache
+  // (axe._tree), which axe.run() tears down internally before its promise
+  // resolves - calling this after awaiting axe.run() throws for almost
+  // every element (root cause found via the Day 5 golden pairs: cases 5 and
+  // 20 both silently fell through to Tier 4/5 before this fix, because
+  // Tier 3 was unreachable). axe.setup(document) rebuilds that cache; see
+  // the call site below. One element's accessible-name computation must
+  // still never take down the whole scan, so this stays defensive even
+  // with setup in place.
   function safeAccessibleText(el: Element): string | undefined {
     try {
       return axe.commons.text.accessibleText(el);
@@ -325,20 +357,39 @@ async function collectRawFindings(args: {
       chain.unshift(roleForElement(node));
       node = elementParent(node);
     }
-    return [roleForElement(landmark), ...chain].join(' > ');
+    // The landmark's own role always survives capping - it identifies WHICH
+    // landmark this is, unlike the intermediate chain.
+    return [roleForElement(landmark), ...capPathDepth(chain)].join(' > ');
   }
 
-  // "Nearest stable ancestor" (02 §3.1) isn't fully specified in the docs.
-  // Interpreted as: the nearest ancestor with its own id, or a landmark, or
-  // <body> as the final fallback - something that gives the path a fixed
-  // reference point even though the element itself has none.
+  const generatedIdPatterns = args.generatedIdPatterns.map((p) => new RegExp(p.source, p.flags));
+  function isIdGenerated(id: string): boolean {
+    return generatedIdPatterns.some((pattern) => pattern.test(id));
+  }
+
+  // "Nearest stable ancestor" (02 §3.1), corrected per DECISIONS.md D28: the
+  // nearest ancestor with a NON-generated id (a React useId etc churns every
+  // build - anchoring Tier 5 to one is worse than anchoring to nothing), or
+  // a landmark, or <body> as the final fallback.
   function nearestStableAncestor(el: Element): Element {
     let node = elementParent(el);
     while (node) {
-      if (node.id || implicitLandmarkRole(node) || node === document.body) return node;
+      if ((node.id && !isIdGenerated(node.id)) || implicitLandmarkRole(node) || node === document.body) {
+        return node;
+      }
       node = elementParent(node);
     }
     return document.body;
+  }
+
+  // Caps how many ancestor levels Tier 4/5 paths record, keeping both the N
+  // CLOSEST-TO-ELEMENT segments (the specific, identifying end of the path)
+  // and dropping any excess from the anchor end (the vague, "which general
+  // area" end) - a pathologically deep tree shouldn't produce an unbounded
+  // path string.
+  const MAX_PATH_DEPTH = 8;
+  function capPathDepth(chain: string[]): string[] {
+    return chain.length > MAX_PATH_DEPTH ? chain.slice(chain.length - MAX_PATH_DEPTH) : chain;
   }
 
   // Tier 5 (02 §3.1): tag[same-tag-sibling-index] path from the nearest
@@ -354,7 +405,7 @@ async function collectRawFindings(args: {
       chain.unshift(`${node.tagName.toLowerCase()}[${sameTagSiblingIndex(node)}]`);
       node = elementParent(node);
     }
-    return chain.join(' > ');
+    return capPathDepth(chain).join(' > ');
   }
 
   function buildRawFinding(
@@ -425,5 +476,14 @@ async function collectRawFindings(args: {
     return 0;
   });
 
-  return entries.map(({ rule, node, bucket }) => buildRawFinding(rule, node, bucket));
+  // Rebuild axe's tree cache - axe.run() already tore its own down - so
+  // buildRawFinding's accessibleText calls actually work (see
+  // safeAccessibleText above). Torn down again afterwards so this page is
+  // left the way axe.run() would leave it.
+  axe.setup(document);
+  try {
+    return entries.map(({ rule, node, bucket }) => buildRawFinding(rule, node, bucket));
+  } finally {
+    axe.teardown();
+  }
 }

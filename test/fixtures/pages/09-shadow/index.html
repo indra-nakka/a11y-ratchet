@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Shadow DOM — a11y-ratchet fixtures</title>
+
+    <!--
+      Shadow DOM (01 §6.1, 02 §3.1, 03-EVIDENCE.md §2.2).
+
+      Two custom elements, same internal defect (an icon-only button with no
+      accessible name), different shadow root mode:
+
+        - <open-widget>   open shadow root  - axe pierces it; detected.
+        - <closed-widget> closed shadow root - genuinely invisible to any
+          DOM-based tool, this tool included. Not "off by default", not a
+          scope decision like the AAA exclusions elsewhere in this suite -
+          there is no vantage point from which a scanner running in the page
+          can see inside. Expectations recorded in ../manifest.json.
+    -->
+
+    <style>
+      body {
+        margin: 0;
+        background: #ffffff;
+        color: #1a1a1a;
+        font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+        font-size: 16px;
+        line-height: 1.6;
+      }
+
+      header,
+      main,
+      footer {
+        max-width: 46rem;
+        margin: 0 auto;
+        padding: 1.25rem 1rem;
+      }
+
+      footer {
+        border-top: 1px solid #6b6b6b;
+      }
+
+      a {
+        color: #0b4f9e;
+        text-decoration: underline;
+      }
+
+      .skip-link {
+        display: inline-block;
+        padding: 0.5rem 0.75rem;
+        background: #0b4f9e;
+        color: #ffffff;
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <a class="skip-link" href="#main-content">Skip to main content</a>
+      <nav aria-label="Primary">
+        <a href="#main-content">Widgets</a>
+      </nav>
+    </header>
+
+    <main id="main-content">
+      <h1>Shadow DOM widgets</h1>
+
+      <p>Both buttons below are icon-only, with no accessible name, inside a custom element's shadow root.</p>
+
+      <!-- Defect: open shadow root, unlabelled icon button inside. Detected. -->
+      <open-widget id="open-widget"></open-widget>
+
+      <!-- Defect: closed shadow root, same unlabelled icon button. Invisible to axe. -->
+      <closed-widget id="closed-widget"></closed-widget>
+    </main>
+
+    <footer>
+      <p>Northfield Water Authority.</p>
+    </footer>
+
+    <script>
+      const ICON_BUTTON_HTML =
+        '<button type="button"><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" /></svg></button>';
+
+      class OpenWidget extends HTMLElement {
+        connectedCallback() {
+          const root = this.attachShadow({ mode: 'open' });
+          root.innerHTML = ICON_BUTTON_HTML;
+        }
+      }
+      customElements.define('open-widget', OpenWidget);
+
+      class ClosedWidget extends HTMLElement {
+        connectedCallback() {
+          const root = this.attachShadow({ mode: 'closed' });
+          root.innerHTML = ICON_BUTTON_HTML;
+        }
+      }
+      customElements.define('closed-widget', ClosedWidget);
+    </script>
+  </body>
+</html>

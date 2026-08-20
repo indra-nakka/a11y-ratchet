@@ -286,6 +286,33 @@
     },
 
     {
+      "path": "09-shadow/index.html",
+      "criteria": ["4.1.2"],
+      "defects": [
+        {
+          "id": "shadow-open-widget-no-name",
+          "selector": "#open-widget",
+          "criterion": "4.1.2",
+          "level": "A",
+          "description": "Icon-only button with no accessible name, inside an OPEN shadow root.",
+          "expectation": "detected",
+          "expectedRules": ["button-name"]
+        },
+        {
+          "id": "shadow-closed-widget-no-name",
+          "selector": "#closed-widget",
+          "criterion": "4.1.2",
+          "level": "A",
+          "description": "The identical icon-only button with no accessible name, inside a CLOSED shadow root.",
+          "expectation": "missed",
+          "expectedRules": [],
+          "missReason": "unautomatable",
+          "rationale": "A closed shadow root is genuinely invisible to any DOM-based tool running in the page - there is no vantage point from which axe, or this tool's own identity code, can see inside it. Unlike the AAA and best-practice exclusions elsewhere in this suite, this is not a scope decision or an off-by-default rule; no configuration change could ever enable detection here."
+        }
+      ]
+    },
+
+    {
       "path": "10-clean/index.html",
       "criteria": [],
       "expectZeroFindings": true,

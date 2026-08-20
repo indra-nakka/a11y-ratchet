@@ -23,8 +23,12 @@ describe('normaliseText', () => {
     expect(normaliseText('sa\u200Ble\u200Cs')).toBe('sales');
   });
 
-  it('masks embedded digit runs of length 2+ but leaves single digits alone', () => {
-    expect(normaliseText('page 5 of 10')).toBe('page 5 of #');
+  it('masks every embedded digit run, including single digits (corrected per golden case 5, DECISIONS.md D33)', () => {
+    // A single-digit count is exactly as common as a two-digit one - "3
+    // results" -> "17 results" must normalise identically, and the doc's
+    // own "page # of #" example masks both regardless of digit count.
+    expect(normaliseText('page 5 of 10')).toBe('page # of #');
+    expect(normaliseText('3 results')).toBe(normaliseText('17 results'));
   });
 
   it('masks ISO dates', () => {
@@ -70,6 +74,12 @@ describe('isGeneratedId', () => {
   it('rejects Ember and Angular ids', () => {
     expect(isGeneratedId('ember482')).toBe(true);
     expect(isGeneratedId('ng-serverapp-c123')).toBe(true);
+  });
+
+  it('rejects MediaWiki ids (found via the Day 5 real-site smoke against Wikipedia)', () => {
+    expect(isGeneratedId('mwAyc')).toBe(true);
+    expect(isGeneratedId('mwA28')).toBe(true);
+    expect(isGeneratedId('mwSection')).toBe(false); // too long to be the mw counter scheme
   });
 
   it('accepts an ordinary authored id', () => {

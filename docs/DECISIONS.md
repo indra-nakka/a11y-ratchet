@@ -546,3 +546,206 @@ findings assumption.
   (`/app/#/product/1234` → `/app/#/product/:id`); when unset, the fragment
   is stripped entirely, matching the doc's default. Untested against a real
   SPA fixture - no such fixture exists yet.
+
+---
+
+## 2026-08-20 — Day 5
+
+### D33. Two real bugs found by the golden pairs, before touching `fingerprint.ts` further
+
+Written and run as failing tests first, per the day's instruction. 17/20 passed
+immediately; three didn't, and two of the three were genuine bugs rather
+than test-authoring mistakes:
+
+**`axe.commons.text.accessibleText` was silently broken since Day 2, for
+almost every element.** `safeAccessibleText`'s try/catch (added Day 2 for
+one `<area>` case) was masking a much bigger problem: `accessibleText`
+depends on axe's internal tree cache (`axe._tree`), and `axe.run()` tears
+that cache down internally before its own promise resolves. Calling
+`accessibleText` afterward — which is what `buildRawFinding` always does —
+threw for a plain `<button>` and a plain `<a>` with ordinary text content,
+not just the `<area>` edge case. The catch swallowed it every time,
+silently returning `accessibleName: undefined`. **This means Tier 3
+(accessible name) has been effectively unreachable since it was written on
+Day 4** — the Day 4 tier-distribution report (D30: 18 Tier 1, 0 Tier 2, 0
+Tier 3, 1 Tier 4, 0 Tier 5) undercounted Tier 3 for this reason, not only
+because the fixtures mostly have ids. Fixed: `axe.setup(document)` before
+the per-node identity loop rebuilds the cache; `axe.teardown()` after
+restores the page to how `axe.run()` would have left it.
+`scan/axe.ts` now depends on `axe.setup`/`axe.teardown`, both public
+axe-core API, not internals.
+
+**Digit masking (`§3.3`) only masked runs of 2+ digits, per the doc's
+literal bullet text.** Golden case 5 ("3 results" → "17 results" must be
+`persisting`) exposed that a single-digit count was left unmasked while a
+two-digit one wasn't, so the two sides normalised differently and the
+fingerprints diverged. Corrected to mask every embedded digit run
+regardless of length — matching the doc's own worked example ("page # of
+#", which masks both instances) over the isolated ">= 2" bullet, which
+this case makes clear can't be literally correct. The whole-string
+exception (case 20, pagination) is unaffected — it never depended on the
+run-length threshold, only on the entire-string check.
+
+Case 11 (element moves into an open shadow root) found a third bug, in the
+shadow-DOM handling from Day 4 specifically — see D29's follow-up below.
+
+### D34. `nearestPrecedingHeadingText`'s shadow scoping was wrong (D29 revisited)
+
+D29 (Day 4) scoped heading search to the element's own shadow root,
+reasoning that a heading outside a component's boundary isn't "context" for
+content inside it - flagged at the time as "a defensible scope decision,
+not a proven-correct one," since no fixture exercised it. Golden case 11
+(persisting across a move into an open shadow root) is exactly that
+fixture, and it failed: moving an element with no heading of its own into
+an empty shadow root flipped `headingContext` from a real value to `'none'`
+even though nothing about the element's position in the page had actually
+changed from a reader's point of view.
+
+Corrected: `nearestPrecedingHeadingText` now searches the element's own
+scope first, and if nothing precedes it there, escalates to the shadow
+HOST's position in the enclosing scope, recursing outward through nested
+shadow roots. `compareDocumentPosition` doesn't work across a shadow
+boundary, so each scope is searched independently rather than as one
+flattened tree - the escalation step is what stitches them together.
+
+### D35. Golden case 7 cannot be satisfied at the fingerprint layer - a real limitation, documented rather than forced
+
+`div[role="button"]` and a native `<button>` with the same missing-name
+defect resolve to two DIFFERENT axe-core 4.13.0 rules:
+`aria-command-name` for the ARIA-role version, `button-name` for the
+native one. `ruleId` is a fingerprint input by design (`§3.5`) — correctly,
+since a different rule firing on the same element usually IS a different
+defect. That means case 7, taken literally ("same defect" implies
+`persisting`), cannot be made to produce equal fingerprints without
+weakening a guarantee that matters far more (two distinct rules on one
+element must never collapse to one identity).
+
+Not treated as a bug to route around. The test now asserts the real,
+verified behaviour (different `ruleId`, different `fingerprint`, but the
+same `identity.value` since the element's id didn't change) and documents
+why: fixing this would require Day 6's matcher to treat certain rule-id
+PAIRS as equivalent, which `§6`'s current design doesn't support (fuzzy
+candidates are restricted to matching `ruleId` and `source`). Worth raising
+before Day 6's matcher design is finalised, not silently absorbed.
+
+### D36. Golden pairs written as inline HTML, not `test/fixtures/diff-pairs/`
+
+`03-EVIDENCE.md §2.2` documents `diff-pairs/` as a real directory of before/
+after files. Used inline template-literal HTML in one test file instead —
+40 small files for content this size would be pure authoring overhead
+(every case is 5-15 lines) without the review benefit that payoff assumes
+for the larger fixture pages. Each case's HTML sits directly next to its
+expectations and rationale, which reads more like the "table-driven"
+framing `§9` asks for than a directory of same-named `before.html`/
+`after.html` pairs would. Flagged as a deviation from the documented
+layout, per the working agreement, rather than assumed harmless.
+
+### D37. Case 20 revealed the `<a>`/`<button>` accessibleText bug empirically
+
+Worth recording separately from D33's general fix: case 20 (pagination) was
+the case that actually surfaced the accessibleText bug during test-writing,
+before the cause was understood - every one of the five links resolved to
+Tier 4 (`"navigation > link"`) instead of Tier 3 (`"10"`, `"11"`, …),
+which was the first concrete symptom investigated. Recorded here because
+it's a second, independent confirmation (alongside case 5) that Tier 3 was
+dead, from a completely different code path (a link's computed name vs a
+button's) - not a one-off.
+
+### D38. Tier distribution is a standing field, not a one-off measurement
+
+`Summary.findings.byTier: Record<IdentityTier, number>` added, computed in
+`scan/run.ts`'s `buildSummary` alongside the existing `byRule`/`byImpact`/
+etc tallies, and rendered as a line in `report/summary.ts`'s header on every
+run (`identity tiers (5→1): …`). A run landing mostly at tiers 4-5 is
+exactly the kind of thing that should be visible by default, not something
+that requires remembering to write an investigation script - which is
+precisely what happened twice this session (D30's fixture check, and the
+real-site smoke below) before this existed. `Report.schemaVersion` bumped
+`'1.0'` → `'1.1'` for the added field, per this file's own rule for schema
+changes (`src/types.ts`'s header comment). `DiffResult.schemaVersion` is
+unaffected — its shape didn't change.
+
+### D39. Fixture-suite tier distribution, rechecked post-accessibleText-fix
+
+D30 (Day 4) reported 18/0/0/1/0 across tiers 1-5, using the broken
+`accessibleText`. Rechecked after D33's fix and the 09-shadow addition (one
+more finding than D30 had): **18/0/1/1/0** — one finding moved from Tier 4
+to Tier 3. The fixture suite still overwhelmingly measures Tier 1, for the
+same reason D30 gave: every planted defect has an id. D30's caveat stands —
+this suite cannot demonstrate tier distribution under real conditions; the
+real-site smoke below is what actually does.
+
+### D40. Real-site smoke — methodology, and a site swapped mid-session
+
+`00 §9`'s High/Critical risk mitigation, moved up from Day 14 per today's
+instruction. `robots.txt` checked before scanning either site (`curl`, by
+hand, before writing a line of scan code for either).
+
+First attempt: `gov.uk`, 10 `/browse/*` category pages, `--mode=audit`,
+concurrency 3, 250ms delay between requests. **Zero findings, on every
+page.** Plausible on its own merits — GOV.UK's design system is a widely-
+cited accessibility exemplar — but useless for an identity-ROBUSTNESS probe
+specifically: with no findings, there's no identity to measure. Swapped to
+`en.wikipedia.org` (also robots.txt-checked, general crawling of article
+pages is allowed), 10 well-known articles, same mode/concurrency/delay.
+4,218 findings across the 10 pages — a real, messy, high-volume result to
+measure tier distribution and grouping against. `10-page cap, concurrency
+3, 250ms delay` matches `01 §9`'s crawl-politeness numbers even though
+Day 7's crawler doesn't exist yet — these 10 `scan()` calls were run by
+hand, one URL each, batched three at a time with the same delay a real
+crawler would use, not fired simultaneously.
+
+No verification of findings and no manual review were performed, per this
+task's own instruction — this is an identity-robustness probe, not an
+audit. The 15-day plan's real accuracy audit is Day 14.
+
+### D41. Real-site smoke — results (Wikipedia, 10 pages, audit mode)
+
+```
+Findings: 4,218 across 10 pages
+
+Tier distribution (before the MediaWiki id-pattern fix below):
+  Tier 1: 3,529 (81%)   Tier 2: 0   Tier 3: 788 (18%)   Tier 4: 31 (1%)   Tier 5: 0
+
+Tier distribution (after):
+  Tier 1: 114 (3%)   Tier 2: 0   Tier 3: 3,759 (89%)   Tier 4: 345 (8%)   Tier 5: 0
+```
+
+**A real, previously-uncaught gap in the generated-id filter.** MediaWiki
+(the software running Wikipedia, and a large share of wiki-style sites
+generally, not just this one) assigns ids to interactive chrome elements in
+a short base64-ish counter scheme — `mwAQ`, `mwBg`, `mwCA`, etc. None of
+the 8 built-in `GENERATED_ID_PATTERNS` matched it. A site-wide id-hygiene
+pass (a separate, ad-hoc Playwright script — `scan()`'s public API doesn't
+expose which candidate ids the filter rejected, only the winning tier) found
+41,179 elements with an id across the 10 pages; only 1% would have been
+rejected under the original 8 patterns, vs **78% once the MediaWiki pattern
+was added** (`/^mw[A-Za-z0-9]{2,6}$/`, verified against real examples before
+being written, with `mwSection`-length ids checked as a true negative).
+Added to the built-in list, not left for `identity.ignoredIdPatterns`
+config extensibility (Day 8) to cover alone — MediaWiki is common enough to
+warrant the same built-in treatment as React/Radix/Ember/Angular already
+get, and this is exactly the "you will not guess every framework" case
+`02 §3.2` names as the reason the config escape hatch exists at all.
+
+**What this means for tier distribution, reported plainly per the day's
+instruction: real-site findings do NOT land mostly at tiers 4-5.** After the
+fix, they land overwhelmingly at Tier 3 (accessible name, 89%) once
+Tier 1's churny ids are correctly filtered out — Tier 4 (semantic path)
+picks up a further 8%, and **Tier 5 (structural path, the weakest and least
+tested tier) never fired once, across 4,218 real findings on a real site.**
+This is good news for Day 6's matcher design specifically: fuzzy-match
+weighting that leans on accessible-name equality (`§6`'s 0.35 weight, the
+single highest of the five signals) is well-matched to what real identity
+resolution actually produces, at least for this site. It is one site,
+though — `en.wikipedia.org` uses MediaWiki's own template system, which is
+unusually consistent for a "real" site; a modern JS-framework-heavy site
+(React/Vue SPA) was not tried and would be a natural next data point before
+leaning too hard on this result.
+
+**groupKey collapse, confirmed on a real site, not just the D31 synthetic
+pair.** 103 groups span more than one of the 10 pages — the largest,
+`color-contrast` in the `main` landmark, spans 9 of 10. This is the same
+site-wide-nav-defect collapse `01 §8` and the Day 14 audit estimate depend
+on, now observed on real markup rather than only demonstrated by
+construction.

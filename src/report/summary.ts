@@ -52,6 +52,21 @@ function renderFinding(finding: Finding): string {
   return lines.join('\n');
 }
 
+/**
+ * `tier: N (pct%)` for each of the 5 tiers, worst (5) first. A standing
+ * output (`DECISIONS.md` D38), not a one-off investigation artefact — a run
+ * landing mostly at tiers 4-5 is exactly the signal that should be visible
+ * every time, not only when someone remembers to go looking for it.
+ */
+function tierDistributionLine(byTier: Record<number, number>, total: number): string {
+  const parts = [5, 4, 3, 2, 1].map((tier) => {
+    const count = byTier[tier] ?? 0;
+    const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+    return `${tier}:${count} (${pct}%)`;
+  });
+  return `  identity tiers (5→1): ${parts.join(' · ')}`;
+}
+
 /** Renders a full `Report` as a plain-text terminal summary. */
 export function renderSummary(report: Report): string {
   const { tool, run, pages, findings, summary } = report;
@@ -62,6 +77,7 @@ export function renderSummary(report: Report): string {
     `  pages: ${summary.pages.scanned} scanned, ${summary.pages.errored} errored, ${summary.pages.total} total`,
     `  findings: ${summary.findings.violation} violation · ${summary.findings.needsReview} needs-review · ` +
       `${summary.findings.bestPractice} best-practice (${summary.findings.suppressed} suppressed)`,
+    tierDistributionLine(summary.findings.byTier, summary.findings.total),
   ].join('\n');
 
   const erroredPages = pages.filter((page) => page.error);

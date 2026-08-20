@@ -36,6 +36,11 @@ export const GENERATED_ID_PATTERNS: readonly RegExp[] = [
   /[0-9a-f]{8,}/i, // embedded hash
   /\d{5,}/, // long numeric run
   /^(ember|ng-)/, // Ember / Angular
+  // MediaWiki (base64-ish counter, e.g. "mwAyc", "mwA28") - found via the
+  // Day 5 real-site smoke against Wikipedia (`DECISIONS.md` D40): none of
+  // the above patterns caught it, and MediaWiki powers a large share of
+  // wiki-style sites beyond Wikipedia itself, not just one site's quirk.
+  /^mw[A-Za-z0-9]{2,6}$/,
 ];
 
 export function isGeneratedId(id: string, extraPatterns: readonly RegExp[] = []): boolean {
@@ -52,7 +57,18 @@ const ISO_DATETIME =
   /\b\d{4}-\d{2}-\d{2}(?:[t ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:z|[+-]\d{2}:?\d{2})?)?\b/gi;
 const CLOCK_TIME = /\b\d{1,2}:\d{2}(?::\d{2})?\s?(?:am|pm)?\b/gi;
 const CURRENCY = /[$£€¥]\s?\d+(?:[.,]\d+)?|\b\d+(?:[.,]\d+)?\s?(?:usd|gbp|eur|jpy)\b/gi;
-const DIGIT_RUN = /\d{2,}/g;
+/**
+ * Masks EVERY embedded digit run, not just runs of 2+. `§3.3`'s literal text
+ * ("mask digit runs of length >= 2") was implemented that way in Day 4 and
+ * looked reasonable in isolation, but it breaks golden case 5
+ * (`02 §9`, `DECISIONS.md` D33): "3 results" -> "17 results" must produce
+ * the same normalised value, and a single-digit count is exactly as common
+ * as a two-digit one. The doc's own worked example - "page # of #" - masks
+ * both regardless of digit count, which only holds under a >=1 threshold.
+ * Corrected to match the golden case and that example, not the isolated
+ * bullet point.
+ */
+const DIGIT_RUN = /\d+/g;
 /** Whole string is only digits, punctuation and whitespace: masking is skipped (`§3.3` exception). */
 const ONLY_DIGITS_AND_PUNCTUATION = /^[\d\s\p{P}]+$/u;
 
