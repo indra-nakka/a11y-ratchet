@@ -22,6 +22,7 @@ interface Defect {
   expectation: 'detected' | 'needs-review' | 'missed';
   expectedRules: string[];
   rationale?: string;
+  missReason?: 'unautomatable' | 'out-of-scope';
 }
 
 interface ManifestPage {
@@ -94,6 +95,20 @@ describe('fixture manifest', () => {
     expect(clean).toBeDefined();
     expect(clean?.expectZeroFindings).toBe(true);
     expect(clean?.defects).toEqual([]);
+  });
+
+  it('distinguishes unautomatable misses from deliberate out-of-scope exclusions', () => {
+    // A miss without this distinction can't tell "no rule could ever catch
+    // this" from "a rule exists but this tool doesn't enable it" - and the
+    // coverage matrix would silently count a scope decision as a gap.
+    for (const defect of defects.filter((entry) => entry.expectation === 'missed')) {
+      expect(defect.missReason, `${defect.id} is missed but has no missReason`).toMatch(
+        /^(unautomatable|out-of-scope)$/,
+      );
+    }
+    for (const defect of defects.filter((entry) => entry.expectation !== 'missed')) {
+      expect(defect.missReason, `${defect.id} is not missed but sets missReason`).toBeUndefined();
+    }
   });
 
   it('plants defects the tool cannot find, not only ones it can', () => {

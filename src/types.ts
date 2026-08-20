@@ -72,7 +72,7 @@ export type ExitCode =
   | 4
   /** Scan threshold exceeded — absolute violation count, no baseline involved. */
   | 5
-  /** Mode mismatch — attempted diff across `ci` and `audit` runs. */
+  /** Incompatible run configuration — mode, viewport, locale or colour scheme differs. */
   | 6;
 
 /* -------------------------------------------------------------------------- */
@@ -167,6 +167,13 @@ export interface CoverageEntry {
   /** Why the coverage is limited. This is the substance of the matrix. */
   note: string;
   manualChecks: ManualCheck[];
+  /**
+   * True when the entry's coverage depends on an axe-core rule tagged
+   * `experimental` — its detection logic is more likely to change or be
+   * withdrawn between axe-core versions than a stable rule's (`DECISIONS.md`
+   * D17).
+   */
+  experimental: boolean;
 }
 
 /** Coverage totals, generated from `CoverageEntry[]` — never written by hand. */
@@ -522,15 +529,19 @@ export interface Summary {
 /**
  * The report envelope — also the on-disk baseline format (`01 §11`).
  *
- * SUPPRESSION AND THE DIFF. Suppressed findings live in `suppressed`, not in
- * `findings`, so `findings` is the actionable set. They are retained, never
- * deleted: findings are never silently dropped.
+ * SUPPRESSION AND THE DIFF. `findings` is the single complete array: every
+ * finding the run produced, suppressed or not. A suppressed finding stays in
+ * place and carries `suppressed: SuppressionRef` — it is never moved to a
+ * second array. Findings are never silently dropped.
  *
- * That has a consequence the matcher MUST honour — the diff pools
- * `findings` and `suppressed` together when building both candidate sets.
- * Otherwise adding a suppression between two runs makes the finding leave
- * `findings` and pass 3 classifies it `fixed`, a false fix, which is goal 2 in
- * `02 §2`. Suppression is applied at the GATE, never at match time.
+ * This corrects `DECISIONS.md` D8. A partitioned second array requires every
+ * consumer — the matcher, the summary, the report renderer, any external
+ * reader of the JSON — to remember to pool both arrays back together, and
+ * forgetting once is exactly how an added suppression starts reading as a
+ * `fixed` finding, a false fix (goal 2 in `02 §2`). A single array with an
+ * inline tag cannot be forgotten that way. Suppression is applied at the
+ * GATE, never at match time: the gate filters `findings` by `!suppressed`
+ * before applying `bucket` and `bestPractice`.
  */
 export interface Report {
   schemaVersion: '1.0';
@@ -538,10 +549,8 @@ export interface Report {
   run: RunInfo;
   /** Every page attempted, including ones that errored. */
   pages: PageResult[];
-  /** Unsuppressed findings. */
+  /** The single complete set. Suppressed findings stay here, tagged, not deleted. */
   findings: Finding[];
-  /** Suppressed findings, each carrying its `SuppressionRef`. Kept, not deleted. */
-  suppressed: Finding[];
   groups: GroupIndex;
   summary: Summary;
 }
@@ -602,6 +611,23 @@ export interface RunRef {
   mode: ScanMode;
 }
 
+/**
+ * Which part of the rendering context differs between base and head. Any
+ * entry here refuses the diff (exit code 6, "incompatible run
+ * configuration") — a light-mode baseline diffed against a dark-mode head
+ * produces phantom contrast regressions of the same class as engine drift
+ * (`01 §3` D5). `concurrency` and `settle` differences are deliberately
+ * excluded: `01 §9` treats those as a stability concern, not a correctness
+ * one, so they land in `gate.warnings` instead of refusing the diff.
+ */
+export type RunIncompatibilityReason = 'mode' | 'viewport' | 'locale' | 'colorScheme';
+
+export interface RunIncompatibility {
+  reason: RunIncompatibilityReason;
+  base: string;
+  head: string;
+}
+
 export interface DiffPages {
   inBoth: number;
   onlyInBase: string[];
@@ -640,8 +666,12 @@ export interface DiffResult {
   head: RunRef;
   /** Base and head ran different axe-core versions. Refused unless explicitly allowed. */
   engineDrift: boolean;
-  /** Base and head ran different scan modes. Always refused (exit 6). */
-  modeMismatch: boolean;
+  /**
+   * Non-empty when mode, viewport, locale or colour scheme differ between
+   * base and head. Any entry refuses the diff (exit code 6) — always, with
+   * no override flag, unlike `engineDrift`.
+   */
+  incompatibleRunConfig: RunIncompatibility[];
   pages: DiffPages;
   findings: DiffFindings;
   gate: DiffGate;

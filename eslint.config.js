@@ -29,9 +29,12 @@ export default tseslint.config(
     },
   },
   {
-    // This config file itself is JS and outside the TS project.
-    files: ['**/*.js'],
+    // This config file, and scripts/, are JS and outside the TS project.
+    files: ['**/*.js', '**/*.mjs'],
     extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: {
+      globals: { console: 'readonly', process: 'readonly' },
+    },
   },
   {
     // src/cli/ is a formatting shell over the library; console output is its job.

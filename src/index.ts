@@ -13,6 +13,9 @@
  */
 
 import { NotImplementedError } from './errors.js';
+import { renderSummary } from './report/summary.js';
+import { runScan } from './scan/run.js';
+import { computeCoverageCounts, WCAG_COVERAGE } from './wcag/coverage.js';
 import type {
   ConfigCheckResult,
   CoverageCounts,
@@ -49,13 +52,15 @@ export {
  * Crawl and scan a site, returning the full report envelope.
  *
  * Pages that fail are recorded in `Report.pages` with their error, never
- * omitted. Suppressed findings are tagged and returned in `Report.suppressed`,
- * never dropped.
+ * omitted. Suppressed findings stay in `Report.findings`, tagged with
+ * `suppressed`, never dropped or moved to a second array.
  *
- * Days 2, 7 and 9.
+ * Days 2, 7 and 9. As of Day 2: a single `seed.url` page, no crawl frontier
+ * (`seed.sitemap`/`seed.urlList` throw) and no interaction probes yet —
+ * `PageResult.probesRun` is `false` until Day 9.
  */
-export function scan(_options: ScanOptions): Promise<Report> {
-  throw new NotImplementedError('scan()', 'Days 2, 7 and 9');
+export function scan(options: ScanOptions): Promise<Report> {
+  return runScan(options);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -105,10 +110,14 @@ export function exitCodeForScan(_report: Report, _failOn?: number): ExitCode {
  * Render a report as HTML, JSON, or a terminal summary. The HTML output is
  * self-contained and must pass its own scan with zero violations (Day 11).
  *
- * Days 3, 10 and 11.
+ * `format: 'summary'` as of Day 3 (`report/summary.ts`); `'html'` and
+ * `'json'` are Days 10 and 11.
  */
-export function renderReport(_report: Report, _options: ReportOptions): Promise<string> {
-  throw new NotImplementedError('renderReport()', 'Days 3, 10 and 11');
+export function renderReport(report: Report, options: ReportOptions): Promise<string> {
+  if (options.format === 'summary') {
+    return Promise.resolve(renderSummary(report));
+  }
+  throw new NotImplementedError(`renderReport() format "${options.format}"`, 'Days 10 and 11');
 }
 
 /**
@@ -186,13 +195,13 @@ export function checkBaseline(_report: Report, _baselinePath: string): Promise<D
 /* -------------------------------------------------------------------------- */
 
 /**
- * The coverage matrix as data — all 86 WCAG 2.2 success criteria, each with what
- * the tool can and cannot detect (`03 Part 1`).
- *
- * Day 3.
+ * The coverage matrix as data — the 55 WCAG 2.2 A/AA success criteria (an AA
+ * conformance claim's scope, `03-EVIDENCE.md §1.1`), each with what the tool
+ * can and cannot detect (`03 Part 1`). AAA criteria aren't in this matrix;
+ * `wcag/criteria.ts` still resolves them by id when a rule tags one.
  */
 export function coverage(): CoverageEntry[] {
-  throw new NotImplementedError('coverage()', 'Day 3');
+  return WCAG_COVERAGE;
 }
 
 /**
@@ -201,11 +210,9 @@ export function coverage(): CoverageEntry[] {
  * Every published count comes from here. Never hardcode a coverage count, a
  * recall figure or a percentage — an earlier draft of the design docs did, and
  * the numbers did not match the table they summarised.
- *
- * Day 3.
  */
-export function coverageCounts(_levels?: Level[]): CoverageCounts {
-  throw new NotImplementedError('coverageCounts()', 'Day 3');
+export function coverageCounts(levels?: Level[]): CoverageCounts {
+  return computeCoverageCounts(levels);
 }
 
 /**

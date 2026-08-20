@@ -62,17 +62,22 @@ describe('public library API', () => {
 });
 
 describe('unimplemented entry points', () => {
+  // exitCodeForDiff (Day 6) and checkConfig (Day 8) are chosen because they
+  // stay stubs the longest - scan (Day 2), coverage/coverageCounts (Day 3)
+  // moved out of this list as their days landed. Neither stub is declared
+  // `async`, so the throw happens synchronously despite the Promise-typed
+  // return signature - toThrow() doesn't need an async assertion here.
   it('throw rather than returning an empty result', () => {
     // A scanner that reports zero violations because it did nothing is the
     // worst possible failure mode for this tool. Stubs must be loud.
-    expect(() => lib.coverage()).toThrow(NotImplementedError);
-    expect(() => lib.coverageCounts()).toThrow(NotImplementedError);
+    expect(() => lib.exitCodeForDiff({} as never)).toThrow(NotImplementedError);
+    expect(() => lib.checkConfig('.a11y/config.json')).toThrow(NotImplementedError);
   });
 
   it('carry exit code 3, so CI reads them as a tool error and not a pass', () => {
     try {
-      lib.coverage();
-      expect.unreachable('coverage() should have thrown');
+      lib.exitCodeForDiff({} as never);
+      expect.unreachable('exitCodeForDiff() should have thrown');
     } catch (error) {
       expect(error).toBeInstanceOf(NotImplementedError);
       expect((error as NotImplementedError).exitCode).toBe(3);

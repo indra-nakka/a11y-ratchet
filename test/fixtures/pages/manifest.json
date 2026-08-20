@@ -2,6 +2,7 @@
   "$schemaNote": "Expectations for every planted fixture defect (03-EVIDENCE.md §2.2). Each entry records the criterion it fails, what the tool is expected to do about it, and - for misses - why the miss is legitimate. The misses are the point: they populate the coverage matrix, the manual checklist, and the README's 'what this cannot catch' section.",
   "$honesty": "expectation describes the behaviour of THIS axe-core version with THIS tool's configuration. It is not a correctness invariant. When a rule tightens and a 'missed' defect starts being detected, the test failing is the signal to update the coverage matrix - not to quietly relax the expectation.",
   "$metric": "The counts derived from this file are a regression metric, not a catch rate (03-EVIDENCE.md §2.5). They are fully determined by which unautomatable defects were chosen to plant, so they measure fixture design, not real-world recall. Never publish them as a recall figure.",
+  "$missReason": "Every 'missed' defect carries missReason. 'unautomatable' means no rule, existing or hypothetical, could evaluate it without understanding page content. 'out-of-scope' means a rule COULD detect it but this tool does not enable that rule by default (best-practice, or AAA) - a scope decision, not a coverage gap. Conflating the two would count a deliberate exclusion as a limitation.",
 
   "axeCoreVersion": "4.13.0",
   "expectations": ["detected", "needs-review", "missed"],
@@ -9,7 +10,7 @@
   "pages": [
     {
       "path": "01-images/index.html",
-      "criteria": ["1.1.1", "4.1.2"],
+      "criteria": ["1.1.1", "4.1.2", "1.4.3"],
       "defects": [
         {
           "id": "images-no-alt",
@@ -28,6 +29,7 @@
           "description": "Purely decorative divider given alt=\"divider\" instead of alt=\"\", so a screen reader announces a meaningless word mid-content.",
           "expectation": "missed",
           "expectedRules": [],
+          "missReason": "unautomatable",
           "rationale": "Whether an image is decorative is a judgement about the page's meaning. axe can see that alt exists and is non-empty; it cannot see that the image carries no information. No automated rule can."
         },
         {
@@ -38,6 +40,7 @@
           "description": "alt=\"DSC_0421.jpg\" - alt text present, and useless.",
           "expectation": "missed",
           "expectedRules": [],
+          "missReason": "unautomatable",
           "rationale": "Passes image-alt because alt is present and non-empty. Judging whether alt text describes the image is the most common real 1.1.1 failure and is not automatable. This is the README's headline example of a defect that passes every automated check."
         },
         {
@@ -48,6 +51,7 @@
           "description": "Accreditation status conveyed entirely by a CSS background-image on an empty span, with no text equivalent.",
           "expectation": "missed",
           "expectedRules": [],
+          "missReason": "unautomatable",
           "rationale": "CSS background images are not in the accessibility tree and have no alt mechanism. axe deliberately does not flag them, because most are decorative. Distinguishing the informative ones requires reading the page."
         },
         {
@@ -89,11 +93,22 @@
         {
           "id": "images-area-no-alt",
           "selector": "#region-north",
-          "criterion": "1.1.1",
+          "criterion": "4.1.2",
           "level": "A",
           "description": "Image map area with an href and no alt; the sibling area is labelled correctly.",
           "expectation": "detected",
-          "expectedRules": ["area-alt"]
+          "expectedRules": ["area-alt"],
+          "rationale": "Written expecting 1.1.1 (Non-text Content), since the defect is a missing alt attribute. Corrected against axe-core 4.13.0's actual tags: area-alt carries wcag244 and wcag412, not wcag111 - an <area> is link-like (it has an href), so its alt IS its accessible name, the same category as link-name. Genuinely a 1.1.1-shaped authoring mistake, but axe's own SC tagging puts the rule at 2.4.4/4.1.2, not 1.1.1."
+        },
+        {
+          "id": "images-star-rating-contrast-incomplete",
+          "selector": "#star-rating",
+          "criterion": "1.4.3",
+          "level": "AA",
+          "description": "Not planted for 1.1.1 - a side effect of defect 7 (div-role-img-no-name), recorded here because the fixture's own rule is that an unpredicted finding is a finding about the tool. The star-rating glyphs (★★★★☆) render at ordinary 13.6:1 contrast (#1a1a1a on #ffffff), but axe-core 4.13.0's color-contrast check cannot resolve a confident ratio for these Unicode symbol glyphs specifically - verified in isolation to be the glyphs, not the role=img attribute (a plain div with the same glyphs reproduces it; role=img with ordinary text does not).",
+          "expectation": "needs-review",
+          "expectedRules": ["color-contrast"],
+          "rationale": "Confirmed by isolated testing against axe-core 4.13.0: star/symbol Unicode glyphs make the color-contrast check bail to incomplete regardless of the actual computed colours. Left in rather than engineered away - rating widgets built from character glyphs are a realistic pattern, and this is genuine tool behaviour worth having a regression test for."
         }
       ]
     },
@@ -110,6 +125,7 @@
           "description": "Tabular data laid out with CSS grid. Sighted users see three labelled columns; the DOM is a flat run of divs.",
           "expectation": "missed",
           "expectedRules": [],
+          "missReason": "unautomatable",
           "rationale": "There is no markup error to detect - the divs are valid. Recognising that a grid is semantically a table requires understanding the content, which is what makes 1.3.1 mostly manual."
         },
         {
@@ -120,6 +136,7 @@
           "description": "A section break styled as a heading and marked up as a paragraph, so it is absent from the heading outline.",
           "expectation": "missed",
           "expectedRules": [],
+          "missReason": "unautomatable",
           "rationale": "Detecting this means deciding that a large bold paragraph was intended as a heading. Font-size heuristics for this misfire constantly on pull quotes, prices and hero copy."
         },
         {
@@ -155,8 +172,9 @@
           "criterion": "1.3.1",
           "level": "A",
           "description": "A column header that describes no data cells, because every row is one cell short.",
-          "expectation": "detected",
-          "expectedRules": ["th-has-data-cells"]
+          "expectation": "needs-review",
+          "expectedRules": ["th-has-data-cells"],
+          "rationale": "Written expecting a hard violation; verified against axe-core 4.13.0 and corrected per this file's own $honesty note. th-has-data-cells resolves this table to incomplete rather than a definite violation - a ragged row (one cell short) is apparently ambiguous enough that the check declines to assert zero association rather than infer it, unlike a table with consistent row lengths. Bucketed needs-review, not a coverage loss: the rule fires, just into the other array."
         },
         {
           "id": "structure-orphan-definition",
@@ -175,6 +193,7 @@
           "description": "Three radio buttons captioned by a styled paragraph, with no fieldset or legend and no role=\"radiogroup\". Each control is individually labelled, so the group question is lost.",
           "expectation": "missed",
           "expectedRules": [],
+          "missReason": "unautomatable",
           "rationale": "Every input has a correct label, which is all axe checks. Inferring that a preceding paragraph is the group's caption is exactly the visually-implied relationship the criterion is about, and there is no reliable signal for it."
         },
         {
@@ -185,6 +204,7 @@
           "description": "An h4 following an h2, skipping a level in the outline.",
           "expectation": "missed",
           "expectedRules": [],
+          "missReason": "out-of-scope",
           "rationale": "axe's heading-order rule is tagged best-practice, not WCAG, and this tool leaves best-practice rules off by default. Skipping a level is poor practice but is not in itself a 1.3.1 failure - presenting it as one is a large part of why practitioners distrust scanners. Run with --include-best-practice to see it, bucketed as a best-practice finding that never gates."
         }
       ]
@@ -259,6 +279,7 @@
           "description": "Text at #666666 on #ffffff - 5.74:1. Passes 1.4.3 at AA, fails 1.4.6 at AAA.",
           "expectation": "missed",
           "expectedRules": [],
+          "missReason": "out-of-scope",
           "rationale": "A deliberate scope decision, not a limitation. This tool targets A and AA, so axe's color-contrast-enhanced rule is not enabled. Enabling the wcag2aaa tag would detect it. Recorded here so the boundary is visible rather than assumed."
         }
       ]

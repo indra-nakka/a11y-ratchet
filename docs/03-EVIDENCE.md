@@ -70,18 +70,18 @@ machine checks proxies for it.
 
 | SC | Title | Lvl | Status | Notes |
 |---|---|---|---|---|
-| 2.1.1 | Keyboard | A | Partial | `scrollable-region-focusable`, `frame-focusable-content`, `nested-interactive` |
+| 2.1.1 | Keyboard | A | Partial | `scrollable-region-focusable`, `frame-focusable-content`. (`nested-interactive` maps to 4.1.2, not here.) |
 | 2.1.2 | No Keyboard Trap | A | **Probe** | No axe rule. Cycle analysis. False-positives on roving-tabindex widgets. |
 | 2.1.4 | Character Key Shortcuts | A | Manual | |
 | 2.2.1 | Timing Adjustable | A | Partial | `meta-refresh` only. Session/JS timeouts invisible. |
-| 2.2.2 | Pause, Stop, Hide | A | Partial | `blink`, `marquee`, `no-autoplay-audio`. Auto-advancing carousels — the common failure — not detected. |
+| 2.2.2 | Pause, Stop, Hide | A | Partial | `blink`, `marquee`. (`no-autoplay-audio` maps to 1.4.2.) Auto-advancing carousels — the common failure — not detected. |
 | 2.3.1 | Three Flashes | A | Manual | |
-| 2.4.1 | Bypass Blocks | A | Partial | `bypass`, `skip-link`. Presence, not function. |
+| 2.4.1 | Bypass Blocks | A | Partial | `bypass` only; `skip-link` is best-practice-tagged and does not count as WCAG signal. Presence, not function. |
 | 2.4.2 | Page Titled | A | **Detectable** | `document-title`. Absence, not descriptiveness. |
 | 2.4.3 | Focus Order | A | Manual | `tabindex` (best-practice) flags positive tabindex. **Probe cut from v1** — roadmap. |
 | 2.4.4 | Link Purpose (In Context) | A | Partial | `link-name` detects empty links. "Read more" passes and fails the criterion. |
 | 2.4.5 | Multiple Ways | AA | Manual | Site-level |
-| 2.4.6 | Headings and Labels | AA | Partial | `empty-heading`, `heading-order` (BP). Descriptiveness unjudgeable. |
+| 2.4.6 | Headings and Labels | AA | Manual | **Corrected (D23).** `empty-heading` and `heading-order` are both best-practice-tagged in 4.13.0 — no WCAG-tagged rule maps here. Descriptiveness was never judgeable anyway. |
 | 2.4.7 | Focus Visible | AA | Manual | **Demoted from Probe.** Requires handling `:focus-visible`, descendant outlines, box-shadow, border shifts, background changes, custom SVG indicators. A computed-style read misfires constantly. Roadmap. |
 | 2.4.11 | Focus Not Obscured (Min) | AA | **Probe** | New in 2.2. Deque has said this will not be added to axe-core. Requires scroll-settled measurement and `scroll-margin` awareness (`01 §6.2`). **The flagship differentiator.** |
 | 2.5.1 | Pointer Gestures | A | Manual | |
@@ -103,47 +103,73 @@ machine checks proxies for it.
 | 3.2.4 | Consistent Identification | AA | Manual | Same. |
 | 3.2.6 | Consistent Help | A | Manual | New in 2.2. Cross-page consistency. |
 | 3.3.1 | Error Identification | A | Manual | Requires submitting a form — invisible to a crawler. |
-| 3.3.2 | Labels or Instructions | A | Partial | `label`, `select-name`, `aria-input-field-name`. Placeholder-as-label often passes. |
+| 3.3.2 | Labels or Instructions | A | Partial | `form-field-multiple-labels` only. (`label`, `select-name`, `aria-input-field-name` all map to 4.1.2.) Placeholder-as-label often passes. |
 | 3.3.3 | Error Suggestion | AA | Manual | |
 | 3.3.4 | Error Prevention | AA | Manual | |
 | 3.3.7 | Redundant Entry | A | Manual | New in 2.2. Multi-step flow traversal. |
-| 3.3.8 | Accessible Authentication (Min) | AA | Partial | New in 2.2. Detecting `onpaste` blocking on password fields is automatable and worth a custom rule; cognitive function tests are not. |
+| 3.3.8 | Accessible Authentication (Min) | AA | Manual | **Corrected (D24).** New in 2.2. axe has no rule here. The earlier Partial credited an `onpaste`-blocking check that is a *custom rule we would have to write* — crediting unwritten code. Returns to Partial only if that rule ships. |
 
 ## 1.6 Robust
 
 | SC | Title | Lvl | Status | Notes |
 |---|---|---|---|---|
 | 4.1.2 | Name, Role, Value | A | **Detectable** | Largest cluster: `button-name`, `link-name`, `aria-*`, `select-name`, `frame-title`. High yield; detects missing/invalid, not incorrect-but-valid. |
-| 4.1.3 | Status Messages | AA | Partial | Detects live regions; cannot verify announcement. |
+| 4.1.3 | Status Messages | AA | Manual | **Corrected (D23).** No WCAG-tagged rule in 4.13.0. Live-region *presence* is observable, but nothing in axe asserts it. |
 
 *(4.1.1 Parsing was removed in 2.2. Markup problems that used to fail it now fail 1.3.1 or 4.1.2.)*
 
 ## 1.7 Counts
 
-The first draft of this document stated summary numbers that did not match its own table —
-fabricated plausible-looking figures instead of counting. In a document whose purpose is to
-demonstrate honesty about coverage, that is the worst possible error.
+**These numbers have been wrong twice.** The first draft fabricated figures that did not
+match its own table. The second hand-counted the table and still over-credited three
+criteria, because the table itself was wrong about which axe rules carry WCAG tags. Both
+errors survived review. In a document whose purpose is honesty about coverage, that is the
+worst possible failure mode, and it has a structural cause: this table and `coverage.ts`
+are duplicate sources of the same facts, and a hand-maintained duplicate always drifts.
 
-**Therefore: do not hardcode these numbers anywhere.** Generate them from
-`coverage.ts` at build time, for the README, the report, and the CLI alike. The counts below
-are for orientation while building and must be regenerated before publishing.
+**Fix: `coverage.ts` is the sole source of truth.** `npm run docs:coverage` regenerates
+both the counts block and the §1.3–§1.6 matrix tables between markers. Do not hand-edit
+either. The figures below are the generated output as of axe-core 4.13.0, kept inline only
+so the document reads standalone.
 
+<!-- GENERATED:counts -->
 ```
 Level A + AA:        55
   Detectable          4    1.4.3 · 2.4.2 · 3.1.1 · 4.1.2
-  Probe               2    2.1.2 · 2.4.11        (3rd cut: 2.4.3 → roadmap)
-  Partial            20
-  Manual             29
-  Any signal         26  (47%)
+  Probe               2    2.1.2 · 2.4.11        (3rd cut: 2.4.3 -> roadmap)
+  Partial            17
+  Manual             32
+  Any signal         23  (42%)
   Certifiable         0
 ```
+<!-- /GENERATED:counts -->
+
+Corrections from the hand-counted draft (D23/D24), verified against `axe.getRules()` and a
+live run rather than assumed:
+
+| SC | Was | Now | Why |
+|---|---|---|---|
+| 2.4.6 Headings and Labels | Partial | Manual | `empty-heading` and `heading-order` are best-practice-tagged; no WCAG-tagged rule maps here |
+| 3.3.8 Accessible Authentication | Partial | Manual | credited an `onpaste` check that is a custom rule we have not written |
+| 4.1.3 Status Messages | Partial | Manual | no WCAG-tagged rule in 4.13.0 |
+
+Four further rows kept their status but named the wrong rules: 2.1.1 (`nested-interactive`
+is 4.1.2), 2.2.2 (`no-autoplay-audio` is 1.4.2), 2.4.1 (`skip-link` is best-practice-only),
+3.3.2 (`label`, `select-name`, `aria-input-field-name` are all 4.1.2; only
+`form-field-multiple-labels` remains).
 
 Then the sentence that does the work:
 
-> This tool produces evidence for 26 of the 55 WCAG 2.2 A/AA success criteria and can
-> certify none of them. Two of those 26 come from interaction probes a static DOM scanner
-> cannot perform. The remaining 29 require a human, and `--manual` will generate you a
-> checklist for them.
+> This tool produces evidence for 23 of the 55 WCAG 2.2 A/AA success criteria and can
+> certify none of them. Two of those 23 come from interaction probes a static DOM scanner
+> cannot perform. The remaining 32 require a human, and `ratchet manual` will generate you
+> a checklist for them.
+
+**Experimental rules.** Tag-based `runOnly` overrides a rule's own `enabled: false`
+(D17), so `css-orientation-lock` (1.3.4) and `label-content-name-mismatch` (2.5.3) run
+under the default config despite being experimental in axe. `CoverageEntry.experimental`
+marks them and the generated table surfaces it. Two of the seventeen Partial rows rest on
+rules Deque has not stabilised, and a reader deserves to know which.
 
 ## 1.8 Data shape
 
