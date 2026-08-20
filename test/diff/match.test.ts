@@ -11,7 +11,7 @@ function finding(overrides: Partial<Finding> = {}): Finding {
   return {
     fingerprint: 'aaaaaaaaaaaaaaaa',
     groupKey: 'bbbbbbbbbbbbbbbb',
-  templateKey: 'cccccccccccccccc',
+    templateKey: 'cccccccccccccccc',
     identityTier: 1,
     identity: { value: 'x', ordinal: 0, context: context(), domDepth: 5 },
     source: 'axe',
@@ -55,6 +55,53 @@ describe('scoreCandidate', () => {
     const head = finding({ urlTemplate: '/b', identity: { value: 'y', ordinal: 0, context: context({ nearestLandmark: 'contentinfo' }), domDepth: 6 } });
     // Only depth contributes: 0.10 * (1 / (1 + 1)) = 0.05.
     expect(scoreCandidate(base, head)).toBeCloseTo(0.05, 5);
+  });
+
+  describe('digit-masked accessible-name credit (DECISIONS.md D73, correcting D48)', () => {
+    // Base/head share nothing except accessibleName and (deliberately) an
+    // equal domDepth - context/urlTemplate/textContent all mismatch (0
+    // each), and equal depth contributes a fixed, known +0.10 rather than
+    // an asymptotic-but-never-quite-zero fraction, so the score is exactly
+    // "0.10 (depth) + whatever the name signal contributes."
+    const DEPTH_CONTRIBUTION = 0.1;
+    const isolated: Partial<Finding> = {
+      urlTemplate: '/a',
+      identity: { value: 'x', ordinal: 0, context: context({ nearestLandmark: 'navigation' }), domDepth: 5 },
+    };
+    const isolatedOther: Partial<Finding> = {
+      urlTemplate: '/completely-different',
+      identity: { value: 'y', ordinal: 0, context: context({ nearestLandmark: 'contentinfo' }), domDepth: 5 },
+    };
+
+    it('awards 0.20, not the full 0.35, when two pure-digit names differ only in their digits', () => {
+      const base = finding({ ...isolated, accessibleName: '10' });
+      const head = finding({ ...isolatedOther, accessibleName: '20' });
+      expect(scoreCandidate(base, head)).toBeCloseTo(DEPTH_CONTRIBUTION + 0.2, 5);
+    });
+
+    it('awards full credit (0.35) when names are literally identical, never the reduced credit', () => {
+      const base = finding({ ...isolated, accessibleName: '10' });
+      const head = finding({ ...isolatedOther, accessibleName: '10' });
+      expect(scoreCandidate(base, head)).toBeCloseTo(DEPTH_CONTRIBUTION + 0.35, 5);
+    });
+
+    it('awards the reduced credit for names that differ only in EMBEDDED digits too, not just pure-digit names', () => {
+      const base = finding({ ...isolated, accessibleName: 'Item 10 of 50' });
+      const head = finding({ ...isolatedOther, accessibleName: 'Item 20 of 60' });
+      expect(scoreCandidate(base, head)).toBeCloseTo(DEPTH_CONTRIBUTION + 0.2, 5);
+    });
+
+    it('does not award digit-masked credit when the names have no digits at all and simply differ', () => {
+      const base = finding({ ...isolated, accessibleName: 'Submit' });
+      const head = finding({ ...isolatedOther, accessibleName: 'Cancel' });
+      expect(scoreCandidate(base, head)).toBeCloseTo(DEPTH_CONTRIBUTION, 5);
+    });
+
+    it('is small enough alone that it cannot push an otherwise-unrelated pair over threshold by itself', () => {
+      const base = finding({ ...isolated, accessibleName: '10' });
+      const head = finding({ ...isolatedOther, accessibleName: '20' });
+      expect(scoreCandidate(base, head)).toBeLessThan(DEFAULT_MATCH_THRESHOLD);
+    });
   });
 });
 

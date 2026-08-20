@@ -39,10 +39,36 @@ export interface MatchOptions {
 export const DEFAULT_MATCH_THRESHOLD = 0.65;
 
 const WEIGHT_ACCESSIBLE_NAME = 0.35;
+/**
+ * `DECISIONS.md` D73, correcting D48: two accessible names that are each
+ * pure digits (`normaliseText`'s `§3.3` whole-string exception keeps "10"
+ * as "10", not "#") never equal each other outright, so a repeated,
+ * unlabelled-except-for-its-number control (pagination, a numbered
+ * carousel) scored zero on the highest-weighted signal for every
+ * candidate - a real, observed false-regression source ("10 11 12 13 14"
+ * -> "20 21 22 23 24" degrading to 5 new + 5 fixed), not a hypothetical
+ * one. Awarded at reduced credit, not full: this is a WEAKER signal than
+ * literal equality (the names genuinely did change), so it must not, on
+ * its own, be able to push an otherwise-unrelated pair over threshold the
+ * way full credit could.
+ */
+const WEIGHT_ACCESSIBLE_NAME_DIGIT_MASKED = 0.2;
 const WEIGHT_CONTEXT = 0.25;
 const WEIGHT_TEXT_CONTENT = 0.2;
 const WEIGHT_URL_TEMPLATE = 0.1;
 const WEIGHT_DOM_DEPTH = 0.1;
+
+const DIGIT_RUN = /\d+/g;
+
+/**
+ * Masks EVERY digit run, including the whole-string case `identity/
+ * fingerprint.ts`'s `normaliseText` deliberately exempts for identity
+ * itself (`§3.3`) - used only as this module's own weaker fallback
+ * matching signal, never as an identity value.
+ */
+function fullyMaskDigits(value: string): string {
+  return value.replace(DIGIT_RUN, '#');
+}
 
 /**
  * `§6`'s revised weights. Selector token Jaccard is deliberately not a
@@ -57,6 +83,15 @@ export function scoreCandidate(base: Finding, head: Finding): number {
 
   if (base.accessibleName !== undefined && base.accessibleName === head.accessibleName) {
     score += WEIGHT_ACCESSIBLE_NAME;
+  } else if (
+    base.accessibleName !== undefined &&
+    head.accessibleName !== undefined &&
+    fullyMaskDigits(base.accessibleName) === fullyMaskDigits(head.accessibleName)
+  ) {
+    // Reaching this branch already implies the two names differ (the `if`
+    // above would have matched otherwise) and that masking made them equal
+    // - i.e. they differ only in embedded/whole digit content.
+    score += WEIGHT_ACCESSIBLE_NAME_DIGIT_MASKED;
   }
 
   if (

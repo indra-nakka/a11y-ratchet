@@ -12,6 +12,7 @@ interface DiffCommandOptions {
   newPagePolicy: NewPagePolicy;
   format: 'summary' | 'json';
   out?: string;
+  html?: string;
   quiet?: boolean;
 }
 
@@ -34,6 +35,7 @@ export function diffCommand(): Command {
 
     .option('--format <format>', 'summary or json (the CI job-summary markdown is a later day)', 'summary')
     .option('--out <path>', 'write the diff result JSON here')
+    .option('--html <path>', 'write a self-contained diff HTML view here')
     .option('--quiet', 'print only the gate reason')
 
     .addHelpText(
@@ -72,6 +74,9 @@ Notes:
         // JSON directly rather than reusing it for a shape it doesn't fit.
         if (options.out) {
           await writeFile(options.out, `${JSON.stringify(result, null, 2)}\n`, 'utf8');
+        }
+        if (options.html) {
+          await writeFile(options.html, await renderDiff(result, { format: 'html' }), 'utf8');
         }
 
         if (options.quiet) {

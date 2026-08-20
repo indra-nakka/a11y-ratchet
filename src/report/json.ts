@@ -48,14 +48,21 @@ export async function readReport(path: string): Promise<Report> {
 }
 
 /**
- * Writes a report to disk with stable (alphabetised) object key ordering,
- * so a committed baseline diffs cleanly in a PR (`01 §11`) — array order is
- * left untouched, since it's meaningful (document order, crawl order).
+ * Renders a report (or any JSON-shaped value) with stable (alphabetised)
+ * object key ordering, so a committed baseline diffs cleanly in a PR
+ * (`01 §11`) — array order is left untouched, since it's meaningful
+ * (document order, crawl order). Shared by `writeReport` and
+ * `renderReport({format: 'json'})` (`index.ts`) so the two never quietly
+ * diverge on formatting.
  */
+export function toStableJson(report: Report): string {
+  return JSON.stringify(sortKeysStably(report), null, 2);
+}
+
+/** Writes a report to disk using `toStableJson`. */
 export async function writeReport(report: Report, path: string): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
-  const stable = JSON.stringify(sortKeysStably(report), null, 2);
-  await writeFile(path, `${stable}\n`, 'utf8');
+  await writeFile(path, `${toStableJson(report)}\n`, 'utf8');
 }
 
 function sortKeysStably(value: unknown): unknown {

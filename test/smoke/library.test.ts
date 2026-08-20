@@ -63,22 +63,23 @@ describe('public library API', () => {
 });
 
 describe('unimplemented entry points', () => {
-  // exitCodeForScan (Day 13) is chosen because it stays a stub the longest -
-  // scan (Day 2), coverage/coverageCounts (Day 3), diff/exitCodeForDiff
-  // (Day 6), checkConfig/baseline (Day 8) moved out of this list as their
-  // days landed. Not declared `async`, so the throw happens synchronously
-  // despite the Promise-typed return signature - toThrow() doesn't need an
-  // async assertion here.
+  // manualChecklist (Day 13) is the last stub - scan (Day 2),
+  // coverage/coverageCounts (Day 3), diff/exitCodeForDiff (Day 6),
+  // checkConfig/baseline (Day 8), exitCodeForScan (D76, pulled forward from
+  // Day 13 into Day 11 so --fail-on wouldn't ship as a silent no-op) all
+  // moved out of this list as their days landed. Not declared `async`, so
+  // the throw happens synchronously despite the Promise-typed return
+  // signature - toThrow() doesn't need an async assertion here.
   it('throw rather than returning an empty result', () => {
     // A scanner that reports zero violations because it did nothing is the
     // worst possible failure mode for this tool. Stubs must be loud.
-    expect(() => lib.exitCodeForScan({} as never)).toThrow(NotImplementedError);
+    expect(() => lib.manualChecklist({})).toThrow(NotImplementedError);
   });
 
   it('carry exit code 3, so CI reads them as a tool error and not a pass', () => {
     try {
-      lib.exitCodeForScan({} as never);
-      expect.unreachable('exitCodeForScan() should have thrown');
+      void lib.manualChecklist({});
+      expect.unreachable('manualChecklist() should have thrown');
     } catch (error) {
       expect(error).toBeInstanceOf(NotImplementedError);
       expect((error as NotImplementedError).exitCode).toBe(3);

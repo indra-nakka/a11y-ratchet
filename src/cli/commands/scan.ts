@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 import { Command } from 'commander';
 
-import { renderReport, scan, writeReport } from '../../index.js';
+import { exitCodeForScan, renderReport, scan, writeReport } from '../../index.js';
 import { run } from '../runtime.js';
 import type { CrawlSeed, ScanMode } from '../../types.js';
 
@@ -96,7 +96,13 @@ Notes:
           await writeFile(options.html, await renderReport(report, { format: 'html' }), 'utf8');
         }
         if (!options.quiet) {
-          console.log(await renderReport(report, { format: 'summary' }));
+          console.log(await renderReport(report, { format: 'summary', ...(options.ungrouped ? { ungrouped: true } : {}) }));
+        }
+
+        const failOn = options.failOn === undefined ? undefined : Number(options.failOn);
+        const exitCode = exitCodeForScan(report, failOn);
+        if (exitCode !== 0) {
+          process.exitCode = exitCode;
         }
       }),
     );
@@ -119,5 +125,7 @@ interface RawScanCliOptions {
   bypassCsp?: boolean;
   out?: string;
   html?: string;
+  ungrouped?: boolean;
+  failOn?: string;
   quiet?: boolean;
 }

@@ -80,50 +80,65 @@ let origin: string | null = null;
  * Reference-counted so several suites in the same worker can each call
  * `start()`/`stop()` without fighting over the server.
  */
+const CHROMIUM_UNSAFE_PORTS = new Set([
+  1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 77, 79, 87, 95, 101,
+  102, 103, 104, 109, 110, 111, 113, 115, 117, 119, 123, 135, 139, 143, 179, 389, 465,
+  512, 513, 514, 515, 526, 530, 531, 532, 540, 556, 563, 587, 601, 636, 993, 995, 1723,
+  2049, 3659, 4045, 6000, 6665, 6666, 6667, 6668, 6669, 6697,
+]);
+
 export async function start(): Promise<string> {
   refCount += 1;
   if (server && origin) return origin;
 
-  const instance = createServer((req, res) => {
-    // Never responds. Exists so a fixture can request a resource (a font,
-    // via `@font-face`) that never finishes loading, for the settle
-    // fonts-ready cap test (`DECISIONS.md` D54) - the browser's connection
-    // closes on its own once the page/context closes, so this never blocks
-    // stop().
-    if (req.url === '/settle-degraded/hang.font') return;
+  while (!server) {
+    const instance = createServer((req, res) => {
+      // Never responds. Exists so a fixture can request a resource (a font,
+      // via `@font-face`) that never finishes loading, for the settle
+      // fonts-ready cap test (`DECISIONS.md` D54) - the browser's connection
+      // closes on its own once the page/context closes, so this never blocks
+      // stop().
+      if (req.url === '/settle-degraded/hang.font') return;
 
-    void (async () => {
-      const file = await resolveFile(req.url ?? '/');
-      if (!file) {
-        res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
-        res.end('Not found');
-        return;
-      }
-      res.writeHead(200, {
-        'content-type': MIME_TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream',
-        // Fixtures change between runs of the suite; never let a proxy or the
-        // browser under test serve a stale copy.
-        'cache-control': 'no-store',
-      });
-      createReadStream(file).pipe(res);
-    })();
-  });
-
-  await new Promise<void>((resolvePromise, rejectPromise) => {
-    instance.once('error', rejectPromise);
-    instance.listen(0, '127.0.0.1', () => {
-      instance.removeListener('error', rejectPromise);
-      resolvePromise();
+      void (async () => {
+        const file = await resolveFile(req.url ?? '/');
+        if (!file) {
+          res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+          res.end('Not found');
+          return;
+        }
+        res.writeHead(200, {
+          'content-type': MIME_TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream',
+          // Fixtures change between runs of the suite; never let a proxy or the
+          // browser under test serve a stale copy.
+          'cache-control': 'no-store',
+        });
+        createReadStream(file).pipe(res);
+      })();
     });
-  });
 
-  const address = instance.address() as AddressInfo | null;
-  if (!address) {
-    throw new Error('fixture server did not resolve a listening address');
+    await new Promise<void>((resolvePromise, rejectPromise) => {
+      instance.once('error', rejectPromise);
+      instance.listen(0, '127.0.0.1', () => {
+        instance.removeListener('error', rejectPromise);
+        resolvePromise();
+      });
+    });
+
+    const address = instance.address() as AddressInfo | null;
+    if (!address) {
+      throw new Error('fixture server did not resolve a listening address');
+    }
+
+    if (CHROMIUM_UNSAFE_PORTS.has(address.port)) {
+      await new Promise<void>((res) => instance.close(() => res()));
+      continue;
+    }
+
+    server = instance;
+    origin = `http://127.0.0.1:${address.port}`;
   }
 
-  server = instance;
-  origin = `http://127.0.0.1:${address.port}`;
   return origin;
 }
 

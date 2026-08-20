@@ -108,13 +108,21 @@ export async function runFocusPathProbe(page: Page, pageContext: PageContext): P
       // this page, without ever leaving the document. Native Tab traversal
       // reaching the true last element always exits the document (that's
       // `left-document`, handled above) - it never revisits an earlier
-      // element on its own. A cycle only happens when the page's own JS
-      // redirects focus, which is either a deliberate (and possibly
-      // escape-less) modal trap or a genuine bug; either way it is a trap
-      // candidate regardless of how much of the page it covered first -
-      // including the worst case, a trap that covers every tabbable element
-      // on the page and leaves nothing else reachable at all.
-      if (step.snapshot) {
+      // element on its own... on a REAL browser. Headless Chromium has no
+      // browser chrome (address bar, other tabs) to hand focus off to, so
+      // it is possible (not observed yet - D64's Vue crawl was 2 genuine
+      // traps in 458 steps, none of this shape) that a complete, correct
+      // traversal of the WHOLE page wraps back to the first element instead
+      // of leaving the document. Guarded here rather than left as a
+      // theoretical risk: if the revisited element is the traversal's own
+      // FIRST element AND the cycle covered exactly as many elements as the
+      // page's own static tabbable-count estimate, that is a clean wrap,
+      // not a trap - treated the same as `left-document` (nothing to
+      // report). Anything short of that - wrapping early, wrapping to some
+      // OTHER already-visited element, or reaching the first element again
+      // without having covered everything - is still a genuine trap
+      // candidate, unconditionally, per the reasoning above.
+      if (!isCleanTraversalWrap(step, snapshot.tabbableCount) && step.snapshot) {
         candidates.push(buildTrapCandidate(step.snapshot));
       }
       break;
@@ -198,6 +206,25 @@ function resolveCandidate(ruleId: string, impact: Impact, snapshot: InPageSnapsh
 const OBSCURED_IMPACT: Impact = 'serious';
 /** §6.3(b)/(c): a keyboard-only user can get stuck with no way to proceed. */
 const TRAP_IMPACT: Impact = 'critical';
+
+/**
+ * A `'cycle'` step is a clean tab-order wrap, not a trap, iff it revisited
+ * the traversal's own FIRST element after covering exactly as many
+ * elements as the page's static tabbable-count estimate (`DECISIONS.md`
+ * D75). A real browser never produces this - reaching the true end of the
+ * tab sequence exits the document, it does not wrap - but headless
+ * Chromium has no browser chrome to hand focus off to, so a complete,
+ * correctly-implemented page COULD wrap back to its own start instead.
+ * Exported so the boundary condition is unit-testable directly, since the
+ * real browser behaviour this guards against has not been observed to
+ * reproduce it on demand (D64: 458 real steps, zero of this shape).
+ */
+export function isCleanTraversalWrap(
+  cycle: { wrappedToFirst: boolean; cycleLength: number },
+  tabbableCount: number,
+): boolean {
+  return cycle.wrappedToFirst && cycle.cycleLength === tabbableCount;
+}
 
 function buildObscuredCandidate(snapshot: InPageSnapshot): CandidateFinding {
   return resolveCandidate(FOCUS_OBSCURED_RULE_ID, OBSCURED_IMPACT, snapshot);
@@ -291,7 +318,7 @@ interface ObscuredInfo {
 type ProbeStepResult =
   | { kind: 'left-document' }
   | { kind: 'unchanged'; snapshot: InPageSnapshot | null }
-  | { kind: 'cycle'; snapshot: InPageSnapshot | null }
+  | { kind: 'cycle'; snapshot: InPageSnapshot | null; cycleLength: number; wrappedToFirst: boolean }
   | { kind: 'stepped'; snapshot: InPageSnapshot; obscured: ObscuredInfo | null };
 
 interface ProbeSnapshotResult {
@@ -669,7 +696,12 @@ function probeStepInPage(args: {
   }
 
   if (state.visited.includes(el)) {
-    return { kind: 'cycle', snapshot: buildSnapshot(el, shadowPath) };
+    return {
+      kind: 'cycle',
+      snapshot: buildSnapshot(el, shadowPath),
+      cycleLength: state.visited.length,
+      wrappedToFirst: state.visited[0] === el,
+    };
   }
 
   state.visited.push(el);

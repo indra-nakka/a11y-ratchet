@@ -18,7 +18,8 @@ import { runCheckConfig } from './config/check.js';
 import { runDiff } from './diff/run.js';
 import { renderDiffSummary } from './report/diffSummary.js';
 import { renderReportHtml } from './report/html/render.js';
-import { readReport as readReportFromDisk, writeReport as writeReportToDisk } from './report/json.js';
+import { renderDiffHtml } from './report/html/renderDiff.js';
+import { readReport as readReportFromDisk, toStableJson, writeReport as writeReportToDisk } from './report/json.js';
 import { renderSummary } from './report/summary.js';
 import { runScan } from './scan/run.js';
 import { computeCoverageCounts, WCAG_COVERAGE } from './wcag/coverage.js';
@@ -102,10 +103,19 @@ export function exitCodeForDiff(result: DiffResult): ExitCode {
  * Map a scan result to a process exit code. Only ever 0 or 5 — the absolute
  * threshold gate, with no baseline involved.
  *
- * Day 13.
+ * Pulled forward from Day 13 (`DECISIONS.md` D76): `--fail-on` was a CLI
+ * flag that silently did nothing without this, which is worse than either
+ * working or refusing to run. `failOn` omitted means no threshold is
+ * configured, never a silent pass disguised as one — every other Day 13
+ * concern (the manual checklist) stays deferred.
+ *
+ * Counts `report.summary.findings.violation` — the same count already
+ * excludes best-practice and suppressed findings (`report/summary.ts`,
+ * `identity/group.ts`), so this never gates on either.
  */
-export function exitCodeForScan(_report: Report, _failOn?: number): ExitCode {
-  throw new NotImplementedError('exitCodeForScan()', 'Day 13');
+export function exitCodeForScan(report: Report, failOn?: number): ExitCode {
+  if (failOn === undefined) return 0;
+  return report.summary.findings.violation > failOn ? 5 : 0;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -115,33 +125,44 @@ export function exitCodeForScan(_report: Report, _failOn?: number): ExitCode {
 /**
  * Render a report as HTML, JSON, or a terminal summary. The HTML output is
  * self-contained (`report/html/render.ts`) and must pass its own scan with
- * zero violations — that self-test is Day 11's job, not built here.
+ * zero violations — that self-test shipped Day 10.
  *
- * `format: 'summary'` as of Day 3 (`report/summary.ts`); `'html'` as of
- * Day 10; `'json'` is still Day 11 (`report/json.ts` already has
- * `readReport`/`writeReport` for the file-based path this scopes around).
+ * `format: 'summary'` as of Day 3 (`report/summary.ts`), grouped by
+ * template unless `options.ungrouped`; `'html'` as of Day 10; `'json'` as
+ * of Day 11, sharing `report/json.ts`'s `toStableJson` with `writeReport`
+ * so the two never quietly diverge on formatting.
  */
 export function renderReport(report: Report, options: ReportOptions): Promise<string> {
   if (options.format === 'summary') {
-    return Promise.resolve(renderSummary(report));
+    return Promise.resolve(renderSummary(report, options.ungrouped !== undefined ? { ungrouped: options.ungrouped } : {}));
   }
   if (options.format === 'html') {
     return Promise.resolve(renderReportHtml(report));
   }
-  throw new NotImplementedError(`renderReport() format "${options.format}"`, 'Day 11');
+  if (options.format === 'json') {
+    return Promise.resolve(toStableJson(report));
+  }
+  // Exhaustive over `ReportFormat`; a future format lands as a type error here, not a silent throw.
+  const unreachable: never = options.format;
+  throw new NotImplementedError(`renderReport() format "${String(unreachable)}"`, 'Day 11');
 }
 
 /**
  * Render a diff as HTML, JSON, or a terminal summary.
  *
- * `format: 'summary'` as of Day 6 (`report/diffSummary.ts`); the CI
- * job-summary markdown and `'html'` are Day 12 and Day 10 respectively.
+ * `format: 'summary'` as of Day 6 (`report/diffSummary.ts`); `'html'` as of
+ * Day 11 (`report/html/renderDiff.ts` — dropped from the Day 10 plan row by
+ * a bullet-list error, restored here); the CI job-summary markdown is
+ * still Day 12, a distinct deliverable from this HTML view.
  */
 export function renderDiff(result: DiffResult, options: ReportOptions): Promise<string> {
   if (options.format === 'summary') {
     return Promise.resolve(renderDiffSummary(result));
   }
-  throw new NotImplementedError(`renderDiff() format "${options.format}"`, 'Days 10 and 12');
+  if (options.format === 'html') {
+    return Promise.resolve(renderDiffHtml(result));
+  }
+  throw new NotImplementedError(`renderDiff() format "${options.format}"`, 'Day 12');
 }
 
 /** Read a report or baseline from disk, validating its `schemaVersion`. */

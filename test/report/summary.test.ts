@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { renderSummary } from '../../src/report/summary.js';
-import type { Finding, Report } from '../../src/types.js';
+import type { Finding, Report, TemplateGroup } from '../../src/types.js';
 
 function finding(overrides: Partial<Finding>): Finding {
   return {
@@ -26,7 +26,26 @@ function finding(overrides: Partial<Finding>): Finding {
   };
 }
 
-function report(findings: Finding[]): Report {
+function templateGroup(finding: Finding, overrides: Partial<TemplateGroup> = {}): TemplateGroup {
+  return {
+    templateKey: finding.templateKey,
+    ruleId: finding.ruleId,
+    source: finding.source,
+    bucket: finding.bucket,
+    bestPractice: finding.bestPractice,
+    impact: finding.impact,
+    criteria: finding.criteria,
+    exampleSelector: finding.selector,
+    groupKeys: [finding.groupKey],
+    fingerprints: [finding.fingerprint],
+    urls: [finding.url],
+    pageCount: 1,
+    instanceCount: 1,
+    ...overrides,
+  };
+}
+
+function report(findings: Finding[], templateGroups: Record<string, TemplateGroup> = {}): Report {
   const violation = findings.filter((f) => f.bucket === 'violation' && !f.bestPractice).length;
   const needsReview = findings.filter((f) => f.bucket === 'needs-review' && !f.bestPractice).length;
   const bestPractice = findings.filter((f) => f.bestPractice).length;
@@ -67,7 +86,7 @@ function report(findings: Finding[]): Report {
     ],
     findings,
     groups: {},
-    templateGroups: {},
+    templateGroups,
     summary: {
       pages: { total: 1, scanned: 1, errored: 0 },
       findings: {
@@ -100,8 +119,8 @@ describe('renderSummary', () => {
     expect(text).toContain('No findings.');
   });
 
-  it('lists a finding with its rule, SC, level, url, selector and remediation', () => {
-    const text = renderSummary(report([finding({})]));
+  it('--ungrouped lists a finding with its rule, SC, level, url, selector and remediation', () => {
+    const text = renderSummary(report([finding({})]), { ungrouped: true });
     expect(text).toContain('color-contrast');
     expect(text).toContain('1.4.3 Contrast (Minimum) [AA]');
     expect(text).toContain('https://example.com/page');
@@ -109,25 +128,27 @@ describe('renderSummary', () => {
     expect(text).toContain('Darken the text.');
   });
 
-  it('sorts violations before needs-review, and critical before minor within a bucket', () => {
+  it('--ungrouped sorts violations before needs-review, and critical before minor within a bucket', () => {
     const text = renderSummary(
       report([
         finding({ ruleId: 'minor-violation', bucket: 'violation', impact: 'minor' }),
         finding({ ruleId: 'critical-violation', bucket: 'violation', impact: 'critical' }),
         finding({ ruleId: 'needs-review-finding', bucket: 'needs-review', impact: 'critical' }),
       ]),
+      { ungrouped: true },
     );
     const order = ['critical-violation', 'minor-violation', 'needs-review-finding'].map((id) => text.indexOf(id));
     expect(order[0]).toBeLessThan(order[1]!);
     expect(order[1]).toBeLessThan(order[2]!);
   });
 
-  it('labels a best-practice finding distinctly and sorts it after WCAG findings in its bucket', () => {
+  it('--ungrouped labels a best-practice finding distinctly and sorts it after WCAG findings in its bucket', () => {
     const text = renderSummary(
       report([
         finding({ ruleId: 'region', bucket: 'violation', bestPractice: true, criteria: [] }),
         finding({ ruleId: 'color-contrast', bucket: 'violation', bestPractice: false }),
       ]),
+      { ungrouped: true },
     );
     expect(text).toContain('[serious/best-practice] region — best practice — not a WCAG failure');
     expect(text.indexOf('color-contrast')).toBeLessThan(text.indexOf('region'));
@@ -139,5 +160,20 @@ describe('renderSummary', () => {
     const text = renderSummary(withError);
     expect(text).toContain('navigation-timeout');
     expect(text).toContain('timed out after 30s');
+  });
+
+  it('defaults to the template-tier grouped view, with instance counts, never a raw finding count', () => {
+    const colorContrast = finding({ ruleId: 'color-contrast', templateKey: 'tk-color-contrast' });
+    const text = renderSummary(
+      report([colorContrast], { 'tk-color-contrast': templateGroup(colorContrast, { instanceCount: 43, pageCount: 12, groupKeys: Array.from({ length: 3 }, (_, i) => `g${i}`) }) }),
+    );
+    expect(text).toContain('Grouped by template');
+    expect(text).toContain('color-contrast');
+    expect(text).toContain('3 template defects (43 instances) on 12 pages');
+  });
+
+  it('a template group with zero groupKeys (all suppressed) is excluded, reporting "no findings" rather than an empty tree', () => {
+    const text = renderSummary(report([finding({})]));
+    expect(text).toContain('No findings (all suppressed)');
   });
 });

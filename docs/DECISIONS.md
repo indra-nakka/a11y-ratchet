@@ -1713,3 +1713,253 @@ row) alone accounts for 1,473 instances across all 30 pages - exactly the
 "50 regressions for one template bug" failure shape `01 §8` describes,
 now collapsed to one line in both the gate reason and the report's
 findings tree.
+
+---
+
+## 2026-08-20 — Day 11
+
+### D73. Case 20 fixed for real: digit-masked accessible-name credit at reduced weight, correcting D48
+
+D48 (Day 6) documented pagination-style repeated controls ("10 11 12 13
+14" → "20 21 22 23 24") degrading to 5 `new` + 5 `fixed` as a deliberate,
+safe non-fix - lowering the global match threshold to catch it was
+rejected as unsafe (it would let genuinely unrelated findings pair on
+landmark+context+depth alone). Revisited today because it is a **live
+false-regression source** (goal 1's zero-tolerance category, `02 §2`), not
+merely an aspirational gap: a site with pagination, a numbered carousel,
+or any control whose visible/accessible content is otherwise-identical
+except for a number would show a phantom regression on every single scan
+that happened to land on a different page/slide than the baseline.
+
+**Fixed with a narrower tool than a threshold change:** `diff/match.ts`
+gains a second, weaker accessible-name signal. `"10"` and `"20"` never
+match at the full 0.35 (they are genuinely different strings, and
+`identity/fingerprint.ts`'s `normaliseText` deliberately does NOT mask a
+whole-string-digits value - `02 §3.3`'s masking exception, precisely so a
+pagination bar's five buttons don't collapse into one fingerprint in the
+first place). But masked with NO exception (every digit run replaced,
+including a whole-digits string) they become equal - `"10"` and `"20"`
+both become `"#"`, `"Item 10 of 50"` and `"Item 20 of 60"` both become
+`"Item # of #"`. That equality is awarded 0.20, not 0.35: a deliberately
+weaker signal, since the names really did change and this must not, on
+its own, be enough to push an unrelated pair over threshold (verified:
+`test/diff/match.test.ts`'s "small enough alone" case constructs a
+worst-case unrelated pair with matching digit-masked names and confirms
+it stays under 0.65 without help from other signals).
+
+**Result, verified against the real fixture, not just the arithmetic:**
+case 20 now classifies as 5 `moved`, not 5 new + 5 fixed - the identity
+value genuinely changed ("10" is not "20"), so `moved` is the correct
+classification, not `persisting`. All 12 zero-tolerance false-regression
+guards and the other 19 golden pairs still pass unchanged (D48's original
+concern - a threshold change destabilising unrelated matches - does not
+apply here, since this signal only ever fires when both names are
+digit-masked-equal, a narrow and specific condition). Full suite: 286/286.
+
+D48's entry is left in place, not deleted - it correctly recorded that a
+threshold-based fix would have been unsafe; today's fix is a different
+mechanism, not a reversal of that finding.
+
+### D74. Experimental axe rules (`css-orientation-lock`, `label-content-name-mismatch`): stay on by default
+
+Both already run today, as a side effect of `scan/axe.ts`'s tag-based
+`runOnly` selection overriding their individual `enabled: false` default
+in axe-core 4.13.0 - not a deliberate per-rule allowlist. Asked whether
+that should become explicit-and-on or explicit-and-off. Decided: **stay
+on**, made explicit rather than left as a side effect.
+
+Reasoning: they are the only automated signal `wcag/coverage.ts` has for
+two of the matrix's 17 `partial` rows (1.3.4 Orientation, 2.5.3 Label in
+Name) - turning them off would not make the tool MORE honest, it would
+make it silently detect less while the coverage matrix kept claiming
+partial coverage that no longer fires. The actual risk "experimental"
+names - detection logic more likely to change or be withdrawn between
+axe-core versions than a stable rule's (`DECISIONS.md` D17) - is already
+the exact thing `CoverageEntry.experimental: true` exists to flag to a
+reader of the matrix; disabling the rules would remove that risk by
+removing the coverage they document, which is a worse trade than
+surfacing the risk and keeping the coverage. Nothing changed in code;
+`scan/axe.ts`'s existing comment already reasoned through this - this
+entry is that reasoning formalised with a decision number, per today's
+request, not a new behaviour.
+
+### D75. Focus-path probe: a tab-order wrap is not a keyboard trap
+
+The requested guard, one probe-quality item alongside today's other work.
+`runFocusPathProbe` (`scan/probes/focusPath.ts`) previously flagged every
+`'cycle'` step (Tab returning to an already-visited element) as a trap
+candidate. That is correct for a real trap - a modal that never releases
+focus cycles through its own handful of elements over and over - but a
+headless Chromium page has no browser chrome to hand focus off to when
+the traversal reaches the true end of the tab sequence, so a completely
+correct, non-trapping page could in principle wrap back to its own first
+element instead of exiting. Not observed in this project's fixtures or
+real-site scans (2 findings in 458 real probe steps, both genuine), but a
+false positive of this shape would fire on every single page of a site if
+it ever did happen, since it is a property of the runtime, not the page.
+
+Added `isCleanTraversalWrap(cycle, tabbableCount)`: a cycle is a clean
+wrap, not a trap, iff it revisited the traversal's own FIRST element
+(`wrappedToFirst`) after covering exactly as many elements as the page's
+static tabbable-count estimate (`cycleLength === tabbableCount`). Both
+conditions matter - `wrappedToFirst` alone would exempt a short trap that
+happens to start at element 1; `cycleLength` alone would exempt a trap
+whose cycle length happens to match the page's total tabbable count by
+coincidence. Exported as a standalone pure function specifically because
+the real-browser condition it guards against cannot be reproduced on
+demand in a test, so the boundary logic is verified with direct synthetic
+inputs (`test/scan/probes/focusPath.test.ts`) instead of a fixture that
+would have to fake headless Chromium's chrome-less state. Re-ran the
+existing trap fixture (`08-focus-trap`) afterward to confirm the guard
+does not accidentally exempt a real trap: its cycle length (2, the
+modal's own two elements) never equals the page's full tabbable count
+(4, includes the toolbar and the link after the modal), so it still
+flags. Full suite: 290/290 after this change.
+
+### D76. `exitCodeForScan()` pulled forward from Day 13
+
+`--fail-on` was named explicitly in today's scope alongside `--ungrouped`
+("Wire the remaining CLI flags on scan and diff"), but `exitCodeForScan()`
+was an explicit Day 13 stub - and `test/smoke/library.test.ts` had a
+dedicated "unimplemented entry points" block built specifically around it
+staying a stub "the longest," documenting the day-boundary discipline as
+test infrastructure, not just a comment. Flagged the conflict rather than
+silently resolving it either way (`CLAUDE.md`: "when a task is ambiguous,
+ask one question"). Asked; told to implement it now.
+
+The function itself is small enough that pulling it forward carries little
+of the risk day-sequencing exists to avoid: no baseline, no matching, just
+`report.summary.findings.violation > failOn ? 5 : 0`, with `failOn`
+omitted meaning no threshold configured (never a silent pass disguised as
+a real one). `report.summary.findings.violation` already excludes
+best-practice and suppressed findings (`report/summary.ts`,
+`identity/group.ts`), so this can't gate on either by construction.
+`manualChecklist` becomes the new last-standing Day 13 stub;
+`library.test.ts`'s "unimplemented entry points" block now targets it,
+its rationale comment updated in place rather than deleted, since the
+pattern itself (a smoke test tracking which entry points still throw) is
+still worth keeping for whatever stays a stub next. New unit coverage in
+`test/exitCodeForScan.test.ts`: no-threshold, at-threshold, over-threshold,
+and the `--fail-on 0` edge case (any violation at all fails).
+
+Without this, `--fail-on` was a flag `scan.ts`'s action handler declared
+and documented in `--help` but never read - accepted silently, did
+nothing. A CLI flag that silently no-ops is a worse failure mode than one
+that is missing or one that errs loudly, which is what made this worth
+resolving today rather than carrying the gap forward a second time.
+
+### D77. Diff HTML view (`report/html/renderDiff.ts`)
+
+Restores the item dropped from Day 10's plan row by a bullet-list error
+(the user's own words: "my bullet list dropped it; that was my error").
+`gate.reason` sits at the top in a colour-coded banner (redundant colour
++ text, not colour alone, for the same reason the scan report never
+relies on colour-only signalling). Below it: new / fixed / moved /
+impact-changed sections, each grouped by `templateKey` with the same
+phrasing discipline as `gate.reason` and the scan report's default view -
+"N templates, M instances", never a raw instance count standing in for
+"N violations." `persisting` is a one-line count, not an expandable
+section (`report/diffSummary.ts` already treats it the same way, and a
+site with thousands of unchanged findings should not have to render
+thousands of unchanged `<details>` blocks). `unclassified` and `unknown`
+get their own always-flat sections, shown whenever non-empty regardless
+of the template-tier framing above them - `CLAUDE.md` invariant 4 exists
+specifically to keep these visible rather than folded into "new", so they
+must never be silently absorbed into a template count that would make
+them look gated the same way a real new-violation template is.
+
+Shares CSS and helpers with the scan report via a new
+`report/html/shared.ts` (`escapeHtml`/`e`/`criteriaLabel`/
+`sortByImpactDesc`/`plural`/`STYLE`) rather than duplicating ~90 lines of
+inlined CSS a second time; `render.ts` now imports from it too, with no
+behaviour change (verified: its own existing tests and the self-scan test
+still pass unchanged). Each instance line shows its `ruleId` directly
+(`<code>${ruleId}</code>`), not only at the template-group summary level -
+needed for the `unclassified`/`unknown` sections, which are flat lists
+with no per-template grouping to hang a rule id off of, so it was added
+uniformly rather than as a special case for just those two sections.
+
+Verified two ways: unit tests against synthetic `DiffResult` fixtures
+covering every section, including HTML-escaping and the "no changes at
+all" empty state (`test/report/html/renderDiff.test.ts`, 12 tests); and an
+accessibility self-scan against a REAL diff from two real scans with
+genuine new/fixed/persisting findings, same discipline as Day 10's scan
+report self-test (`test/report/html/diff-self-scan.test.ts`) - zero
+violations, zero best-practice findings on the rendered page itself.
+
+### D78. `renderReport({format: 'json'})`, CLI wiring scoped to `--ungrouped`, `--fail-on` and diff `--html`
+
+`report/json.ts`'s existing `sortKeysStably` is now exposed as
+`toStableJson()`, shared by `writeReport()` and the new
+`renderReport({format: 'json'})` branch so the two paths can never quietly
+diverge on key ordering (`01 §11` - a committed baseline needs to diff
+cleanly in a PR, which depends on that ordering staying stable).
+`renderDiff()` was NOT given a `'json'` branch - not named in today's
+scope (`renderReport({format:'json'})` was; `renderDiff` json was not),
+and `DiffResult` isn't a committed artefact the way a baseline is, so
+there's no stable-ordering requirement pulling it in for free. Left as a
+`NotImplementedError` naming Day 12, alongside the CI job-summary
+markdown that's already deferred there.
+
+CLI: `scan --ungrouped` now reaches `renderReport`'s summary call;
+`scan --fail-on <n>` sets `process.exitCode` via the newly-implemented
+`exitCodeForScan()` (D76). `diff` gains `--html <path>`, mirroring
+`scan`'s `--out`/`--html` pair, writing `renderDiff(result, {format:
+'html'})` to disk - without it, the diff HTML view built today (D77)
+would have no CLI surface at all, which would make "built" a stretch for
+what the README's own words call the Action's actual value.
+
+**Not in today's scope, and left that way deliberately, not silently:**
+`--probes`/`--no-probes`, `--viewport`, `--locale`, `--color-scheme`,
+`--settle-strategy`, `--settle-quiet-ms` and `--include-best-practice` on
+`scan` remain declared-but-unwired, same state D21 and the Day 7 crawler
+wiring entry left them in. Today's instruction was "`--ungrouped`,
+`--fail-on`, and anything left unwired since Day 6 **pending a
+renderer**" - `--fail-on` was named explicitly (D76 covers why it needed
+more than just CLI wiring); the rest of that list depend on a renderer
+existing, and now do (`--ungrouped` via `report/summary.ts`'s
+`SummaryOptions`, both `--html` flags via `renderReportHtml`/
+`renderDiffHtml`). The still-dangling flags above were never blocked on a
+renderer - they were deferred to whichever day shipped what they
+configure (probes: Day 9, done; viewport/locale/colour-scheme/settle:
+never actually assigned a day in `00 §6`'s table). Wiring them was not
+asked for today and isn't free (each is either a `ScanOptions` passthrough
+with its own validation - `--viewport WxH` parsing, `--color-scheme`
+enum-checking - or, for `--probes`, needs to compose correctly with
+`--no-probes`), so rather than guess at scope, this is recorded as a
+known, real gap for a future day to pick up explicitly.
+
+### D79. Library public API verified through the BUILT package, not source
+
+`00 §7` cut line 5: "if this can't ship, delete the CLI+library claim from
+the README rather than ship it untested." It ships: `tsup.config.ts`
+already had `dts: true` from an earlier day, and `npm run build` emits a
+clean `dist/index.d.ts` (38.68 KB, all 23 public exports present) with no
+new errors from today's changes (`renderDiffHtml`, `toStableJson`,
+`exitCodeForScan`, the `SummaryOptions` second parameter).
+
+New `test/smoke/built-package.test.ts` imports `dist/index.js` -
+literally the file an external consumer's `import` would resolve to, not
+`src/index.js` and not a shelled-out CLI subprocess (every other test in
+the suite imports source, which proves the library's logic works but says
+nothing about whether `tsup`'s bundling, the `playwright`/`axe-core`
+externals, or declaration-file generation actually produce an importable
+package). Runs `npm run build` in its own `beforeAll` rather than assuming
+a prior build step, so it's correct regardless of script ordering or a
+stale `dist/` left over from an earlier run. The dynamic `import()` target
+is a runtime-computed `file://` URL, not a literal `'../../dist/index.js'`
+string - a literal specifier is exactly what `tsc` tries to resolve
+module types against, which would make `npm run typecheck` fail on a
+fresh checkout before the first build; verified by temporarily moving
+`dist/` aside and re-running `npm run typecheck` clean. Covers: every
+named export present as a live binding (not just listed in the `.d.ts`),
+identity matches `package.json`, and a full scan → every report format →
+self-diff → diff HTML round trip, all through the built entry point.
+
+Not done today: a `.d.ts`-shape assertion tool (e.g. `tsd` or `dtslint`)
+was considered and skipped - the existing declaration-file test already
+checks every export name is present in both the `.d.ts` text and the
+runtime module, which is the gap `00 §7` cut line 5 is actually worried
+about (a broken build, not a subtly wrong type signature); a full
+type-level assertion suite is more machinery than today's scope asked
+for and would be its own, separately-scoped addition.

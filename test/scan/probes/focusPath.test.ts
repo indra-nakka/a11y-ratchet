@@ -10,7 +10,25 @@ import { describe, expect, it } from 'vitest';
 
 import { scan } from '../../../src/index.js';
 import { pageUrl, start, stop } from '../../fixtures/server.js';
-import { FOCUS_OBSCURED_RULE_ID, KEYBOARD_TRAP_RULE_ID } from '../../../src/scan/probes/focusPath.js';
+import { FOCUS_OBSCURED_RULE_ID, isCleanTraversalWrap, KEYBOARD_TRAP_RULE_ID } from '../../../src/scan/probes/focusPath.js';
+
+describe('isCleanTraversalWrap (DECISIONS.md D75)', () => {
+  it('is a clean wrap when the cycle returns to the first element after covering every tabbable', () => {
+    expect(isCleanTraversalWrap({ wrappedToFirst: true, cycleLength: 12 }, 12)).toBe(true);
+  });
+
+  it('is NOT a clean wrap when it returns to the first element but covered fewer than the page\'s tabbable count (a real trap starting at element 1)', () => {
+    expect(isCleanTraversalWrap({ wrappedToFirst: true, cycleLength: 2 }, 12)).toBe(false);
+  });
+
+  it('is NOT a clean wrap when the cycle length matches but it wrapped to some OTHER already-visited element, not the first', () => {
+    expect(isCleanTraversalWrap({ wrappedToFirst: false, cycleLength: 12 }, 12)).toBe(false);
+  });
+
+  it('is NOT a clean wrap when neither condition holds', () => {
+    expect(isCleanTraversalWrap({ wrappedToFirst: false, cycleLength: 3 }, 12)).toBe(false);
+  });
+});
 
 describe('focus-path probe', () => {
   it('flags a control genuinely obscured by a sticky header, and does not flag the one with correct scroll-margin-top', async () => {

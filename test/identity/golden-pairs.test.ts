@@ -648,24 +648,28 @@ describe('golden pairs: must pair 1-to-1 (not collapse)', () => {
     expect(beforeFindings.map((f) => f.identity.value).sort()).toEqual(['10', '11', '12', '13', '14']);
     expect(afterFindings.map((f) => f.identity.value).sort()).toEqual(['20', '21', '22', '23', '24']);
 
-    // Full diff() pipeline - reported honestly, not forced to match the
-    // doc's "1-to-1 pairing" aspiration (DECISIONS.md D48). The masking
-    // exception keeps all 10 identity values distinct (asserted above),
-    // which is what protects against a false COLLAPSE - but "10" and "20"
-    // are still literally different accessible-name values, so pass 2's
-    // highest-weighted signal (0.35) contributes nothing for any pair.
-    // Landmark+heading context (0.25) and urlTemplate (0.10) still match
-    // for every candidate, and DOM depth is close, so the remaining ~0.45
-    // does not clear the 0.65 default threshold: this degrades to 5 new +
-    // 5 fixed, not moved. Safe (§6: "less information, not false
-    // regressions"), not the 1-to-1 pairing the doc aspires to - the
-    // threshold would have to drop low enough to risk exactly the kind of
-    // false match `§6` warns against for this to pair instead.
+    // Full diff() pipeline - the 1-to-1 pairing the doc aspires to, fixed
+    // for real on Day 11 (DECISIONS.md D73, correcting D48's "safe
+    // degradation, not patched around"). The masking exception keeps all 10
+    // identity values distinct (asserted above), which is what protects
+    // against a false COLLAPSE - "10" and "20" are still literally
+    // different accessible-name values, so pass 2's full-credit name signal
+    // (0.35) contributes nothing, but they match once ALL digits are
+    // masked (not just the whole-string exception `normaliseText` applies
+    // for identity), so the reduced-credit signal (0.20) fires. Combined
+    // with landmark+heading context (0.25) and urlTemplate (0.10), plus
+    // close DOM depth, every candidate clears the 0.65 threshold: 5
+    // `moved`, not 5 new + 5 fixed. `moved`, not `persisting`, is the
+    // correct classification either way - the identity genuinely did
+    // change ("10" is not "20"); the pairing is now honest ABOUT a change,
+    // not blind to the relationship.
     const result = diffPair(before, after);
-    expect(result.findings.new).toHaveLength(5);
-    expect(result.findings.fixed).toHaveLength(5);
-    expect(result.findings.moved).toHaveLength(0);
-    // The property that must hold regardless: no false persisting claim.
+    expect(result.findings.new).toHaveLength(0);
+    expect(result.findings.fixed).toHaveLength(0);
+    expect(result.findings.moved).toHaveLength(5);
+    // The property that must hold regardless: no false persisting claim -
+    // the identity value really did change, so `persisting` would be wrong
+    // in the other direction now.
     expect(result.findings.persisting).toHaveLength(0);
   }, 30_000);
 });

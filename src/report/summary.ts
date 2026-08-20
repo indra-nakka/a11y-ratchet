@@ -1,15 +1,14 @@
 /**
  * The terminal summary (`01 §2`: `report/summary.ts`).
  *
- * No grouped view yet — `Report.groups` is the Day 4/6 placeholder `{}`
- * (`scan/run.ts`), and a grouped renderer over an empty index would just be
- * a flat list with extra steps. This renders the flat list directly: one
- * block per finding, bucket then impact then rule id, so the worst findings
- * lead. `--ungrouped`'s flat view (`01 §8`) becomes this same renderer once
- * grouping exists — nothing here needs to change for that.
+ * Defaults to the TEMPLATE tier (`01 §8`, Day 10's `Report.templateGroups`)
+ * - one line per templated defect, with an instance count alongside, same
+ * phrasing as `gate.reason` ("1 new template defect (43 instances)" never
+ * "43 violations"). `--ungrouped` (`ReportOptions.ungrouped`) falls back to
+ * the original flat, one-block-per-finding view, worst impact first.
  */
 
-import type { Finding, Impact, Report } from '../types.js';
+import type { Finding, Impact, Report, TemplateGroup } from '../types.js';
 
 const IMPACT_ORDER: Record<Impact, number> = { critical: 0, serious: 1, moderate: 2, minor: 3 };
 const BUCKET_ORDER = { violation: 0, 'needs-review': 1 } as const;
@@ -36,7 +35,7 @@ function findingLabel(finding: Finding): string {
   return `[${finding.impact}/${tag}]`;
 }
 
-function criteriaLabel(finding: Finding): string {
+function criteriaLabel(finding: { criteria: Finding['criteria']; bestPractice: boolean }): string {
   if (finding.criteria.length === 0) {
     return finding.bestPractice ? 'best practice — not a WCAG failure' : 'no SC mapped';
   }
@@ -50,6 +49,46 @@ function renderFinding(finding: Finding): string {
     `  ${finding.remediation}`,
   ];
   return lines.join('\n');
+}
+
+const MAX_EXAMPLE_URLS = 3;
+
+function exampleUrlsLine(urls: readonly string[]): string {
+  const shown = urls.slice(0, MAX_EXAMPLE_URLS);
+  const rest = urls.length - shown.length;
+  return `  Examples: ${shown.join(', ')}${rest > 0 ? `  (+${rest} more)` : ''}`;
+}
+
+function templateLabel(template: TemplateGroup): string {
+  const tag = template.bestPractice ? 'best-practice' : template.bucket;
+  return `[${template.impact}/${tag}]`;
+}
+
+function renderTemplate(template: TemplateGroup): string {
+  const plural = (n: number): string => (n === 1 ? '' : 's');
+  const lines = [
+    `${templateLabel(template)} ${template.ruleId} — ${criteriaLabel(template)}`,
+    `  ${template.groupKeys.length} template defect${plural(template.groupKeys.length)} ` +
+      `(${template.instanceCount} instance${plural(template.instanceCount)}) on ${template.pageCount} page${plural(template.pageCount)}`,
+    `  ${template.exampleSelector}`,
+    exampleUrlsLine(template.urls),
+  ];
+  return lines.join('\n');
+}
+
+function templateSortKey(template: TemplateGroup): [number, number, string] {
+  const bucketRank = BUCKET_ORDER[template.bucket] + (template.bestPractice ? 0.5 : 0);
+  return [bucketRank, IMPACT_ORDER[template.impact], template.ruleId];
+}
+
+function compareTemplates(a: TemplateGroup, b: TemplateGroup): number {
+  const keyA = templateSortKey(a);
+  const keyB = templateSortKey(b);
+  for (let i = 0; i < keyA.length; i += 1) {
+    if (keyA[i]! < keyB[i]!) return -1;
+    if (keyA[i]! > keyB[i]!) return 1;
+  }
+  return 0;
 }
 
 /**
@@ -67,8 +106,13 @@ function tierDistributionLine(byTier: Record<number, number>, total: number): st
   return `  identity tiers (5→1): ${parts.join(' · ')}`;
 }
 
+export interface SummaryOptions {
+  /** Flat, one-block-per-finding view instead of the default template-tier grouping (`01 §8`). */
+  ungrouped?: boolean;
+}
+
 /** Renders a full `Report` as a plain-text terminal summary. */
-export function renderSummary(report: Report): string {
+export function renderSummary(report: Report, options: SummaryOptions = {}): string {
   const { tool, run, pages, findings, summary } = report;
 
   const header = [
@@ -87,7 +131,19 @@ export function renderSummary(report: Report): string {
     return [header, ...errorLines, '', 'No findings.'].join('\n');
   }
 
-  const body = [...findings].sort(compareFindings).map(renderFinding).join('\n\n');
+  if (options.ungrouped) {
+    const body = [...findings].sort(compareFindings).map(renderFinding).join('\n\n');
+    return [header, ...errorLines, '', body].join('\n');
+  }
 
-  return [header, ...errorLines, '', body].join('\n');
+  const templates = Object.values(report.templateGroups).sort(compareTemplates);
+  if (templates.length === 0) {
+    // Every finding is suppressed - templateGroups excludes them (identity/
+    // group.ts), so "no findings to act on" is accurate even though
+    // `findings` itself is non-empty (CLAUDE.md invariant 2: still counted
+    // above, in `summary.findings.suppressed`, never silently absent).
+    return [header, ...errorLines, '', 'No findings (all suppressed).'].join('\n');
+  }
+  const body = templates.map(renderTemplate).join('\n\n');
+  return [header, ...errorLines, '', `Grouped by template (${templates.length} distinct; --ungrouped for the flat list):`, '', body].join('\n');
 }
