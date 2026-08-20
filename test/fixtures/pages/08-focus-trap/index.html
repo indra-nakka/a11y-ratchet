@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Keyboard trap and roving tabindex — a11y-ratchet fixtures</title>
+
+    <!--
+      The focus-path probe's second detection (01 §6.3(b)/(c)): keyboard
+      trap (2.1.2). Two widgets, opposite expectations:
+
+        #modal        — open by default (so a pure Tab-only probe reaches it
+                        with no click needed), 2 focusable elements, and a
+                        keydown handler that wraps Tab at both ends with NO
+                        escape mechanism at all: no Escape handler, no close
+                        button. A genuine, uncontestable 2.1.2 violation.
+                        MUST be flagged.
+
+        #toolbar      — a correctly-implemented WAI-ARIA APG roving-tabindex
+                        toolbar: exactly one button has tabindex="0" at a
+                        time, the rest are tabindex="-1", and arrow keys (not
+                        Tab) move which one is active. A single Tab stop in,
+                        a single Tab stop out - plain Tab-only traversal
+                        never gets stuck here. MUST NOT be flagged (01 §6.4's
+                        named false-positive shape, done correctly).
+    -->
+
+    <style>
+      body {
+        margin: 0;
+        background: #ffffff;
+        color: #1a1a1a;
+        font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+        font-size: 16px;
+        line-height: 1.6;
+      }
+
+      main {
+        max-width: 46rem;
+        margin: 0 auto;
+        padding: 1.25rem 1rem;
+      }
+
+      #modal {
+        border: 2px solid #0b4f9e;
+        padding: 1rem;
+        margin: 1rem 0;
+        max-width: 24rem;
+      }
+
+      .toolbar {
+        display: flex;
+        gap: 0.5rem;
+        margin: 1rem 0;
+      }
+
+      .toolbar button[aria-pressed="true"] {
+        outline: 2px solid #0b4f9e;
+      }
+
+      button,
+      input {
+        min-height: 2.5rem;
+        min-width: 24px;
+        font: inherit;
+      }
+    </style>
+  </head>
+
+  <body>
+    <main>
+      <h1>Profile setup</h1>
+
+      <!-- Open on load, on purpose - see the file-level comment. -->
+      <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <h2 id="modal-title">Complete your profile</h2>
+        <p>
+          <label for="modal-input">Display name</label><br />
+          <input id="modal-input" type="text" />
+        </p>
+        <p><button id="modal-save" type="button">Save</button></p>
+      </div>
+
+      <h2>Text alignment</h2>
+      <p>A correctly-implemented roving-tabindex toolbar - Tab must pass straight through it.</p>
+
+      <div class="toolbar" role="toolbar" aria-label="Text alignment">
+        <button type="button" data-align="left" tabindex="0" aria-pressed="true">Left</button>
+        <button type="button" data-align="center" tabindex="-1" aria-pressed="false">Center</button>
+        <button type="button" data-align="right" tabindex="-1" aria-pressed="false">Right</button>
+      </div>
+
+      <p><a href="#after">Link after the toolbar</a></p>
+    </main>
+
+    <script>
+      // #modal: deliberately no Escape handler and no close button - the
+      // fixture's whole point is a trap with NO way out at all.
+      (function () {
+        var modal = document.getElementById('modal');
+        var focusables = modal.querySelectorAll('input, button');
+        var first = focusables[0];
+        var last = focusables[focusables.length - 1];
+        modal.addEventListener('keydown', function (event) {
+          if (event.key !== 'Tab') return;
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
+        });
+      })();
+
+      // #toolbar: WAI-ARIA APG roving tabindex. Arrow keys move which
+      // button is the (single) tab stop; Tab itself is never intercepted.
+      (function () {
+        var toolbar = document.querySelector('.toolbar');
+        var buttons = Array.prototype.slice.call(toolbar.querySelectorAll('button'));
+
+        function activate(index) {
+          buttons.forEach(function (button, i) {
+            var active = i === index;
+            button.tabIndex = active ? 0 : -1;
+            button.setAttribute('aria-pressed', String(active));
+          });
+          buttons[index].focus();
+        }
+
+        toolbar.addEventListener('keydown', function (event) {
+          var current = buttons.findIndex(function (button) {
+            return button.tabIndex === 0;
+          });
+          if (event.key === 'ArrowRight') {
+            event.preventDefault();
+            activate((current + 1) % buttons.length);
+          } else if (event.key === 'ArrowLeft') {
+            event.preventDefault();
+            activate((current - 1 + buttons.length) % buttons.length);
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

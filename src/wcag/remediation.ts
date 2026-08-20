@@ -103,6 +103,12 @@ const REMEDIATION: Record<string, string> = {
   // 3.3.2 — Labels or Instructions
   'form-field-multiple-labels': 'This form field has more than one <label>, which most screen readers concatenate confusingly — keep exactly one.',
   'aria-input-field-name': 'This ARIA-role input field has no accessible name — add aria-label, aria-labelledby, or an associated <label>.',
+
+  // 2.4.11 — Focus Not Obscured (probe/focus-obscured, scan/probes/focusPath.ts)
+  'probe/focus-obscured': 'A fixed or sticky element covers this control when it receives keyboard focus — add scroll-margin-top (matching the sticky element\'s height) to the control, or reduce the sticky element\'s z-index so focus outlines stay visible above it.',
+
+  // 2.1.2 — No Keyboard Trap (probe/keyboard-trap, scan/probes/focusPath.ts)
+  'probe/keyboard-trap': 'Keyboard focus could not move past this element using Tab alone — if this is a modal or menu, make sure Escape (or an equivalent visible control) returns focus to the rest of the page.',
 };
 
 const FALLBACK_PREFIX = 'No authored remediation note yet for this rule';

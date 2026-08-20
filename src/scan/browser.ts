@@ -143,6 +143,7 @@ export class BrowserPool {
       ...(this.options.storageState ? { storageState: this.options.storageState } : {}),
     });
     await context.addInitScript(injectZeroMotionStyle, ZERO_MOTION_CSS);
+    await context.addInitScript(trackClosedShadowRoots);
     return context;
   }
 }
@@ -162,4 +163,38 @@ function injectZeroMotionStyle(css: string): void {
   } else {
     inject();
   }
+}
+
+/**
+ * Closed shadow roots are unreachable from outside by design (`01 §6.1`) —
+ * `element.shadowRoot` reads `null` for one exactly the same as for an
+ * element with no shadow root at all, so there is no way to detect one
+ * after the fact. The only vantage point is at creation: wrap
+ * `Element.prototype.attachShadow` before any page script runs (an init
+ * script, not a later `page.evaluate`, or every `connectedCallback` that
+ * calls `attachShadow` during initial page load would already have run by
+ * the time this installed) and record which hosts asked for `mode:
+ * 'closed'`. `scan/probes/focusPath.ts` reads `window.__a11yRatchetClosedShadowHosts`
+ * to turn those into `PageResult.probeBlindRegions` — this file only
+ * collects the raw list, it has no notion of what a probe is.
+ */
+function trackClosedShadowRoots(): void {
+  const hosts: Element[] = [];
+  (window as unknown as { __a11yRatchetClosedShadowHosts: Element[] }).__a11yRatchetClosedShadowHosts = hosts;
+
+  // `original` is only ever invoked as `original.call(this, ...)` below,
+  // with the real element as `this` - genuinely safe, but the rule can't
+  // see across the closure to verify that. A `.bind()` "fix" would be
+  // actively wrong here: it would freeze `this` to whatever value existed
+  // at bind time, defeating the whole point of forwarding each call's real
+  // element through.
+  // eslint-disable-next-line @typescript-eslint/unbound-method
+  const original = Element.prototype.attachShadow;
+  Element.prototype.attachShadow = function attachShadow(
+    this: Element,
+    init: ShadowRootInit,
+  ): ShadowRoot {
+    if (init.mode === 'closed') hosts.push(this);
+    return original.call(this, init);
+  };
 }

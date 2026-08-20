@@ -40,7 +40,8 @@ const AXE_SOURCE = readFileSync(require.resolve('axe-core'), 'utf8');
 const WCAG_A_AA_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 const BEST_PRACTICE_TAG = 'best-practice';
 
-const TEST_HOOK_ATTRIBUTES = ['data-testid', 'data-test', 'data-qa', 'data-cy'];
+/** Shared with `scan/probes/focusPath.ts` - both need the same Tier 2 candidate list. */
+export const TEST_HOOK_ATTRIBUTES = ['data-testid', 'data-test', 'data-qa', 'data-cy'];
 
 export interface AxeRunOptions {
   /** `01 §7`: best-practice rules are off by default — never WCAG failures. */

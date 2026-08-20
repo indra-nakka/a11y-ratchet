@@ -143,6 +143,12 @@ reducedMotion: 'reduce'
 
 Plus an injected stylesheet zeroing all animation and transition durations and delays.
 
+**CSP bypass.** Strict `Content-Security-Policy` blocks axe injection outright — the page
+fails to scan rather than scanning clean. Contexts are created with `bypassCSP: true` by
+default. This is recorded in `Report.run.bypassCSP` and is part of the
+`incompatibleRunConfig` comparison, because disabling CSP can permit scripts the real page
+would have blocked, which changes what is scanned. `--no-bypass-csp` for a faithful run.
+
 ### The readiness contract (`scan/settle.ts`)
 
 Do **not** use `waitForLoadState('networkidle')`. It never fires on sites with polling,
@@ -267,6 +273,20 @@ Default report view is grouped:
   Affects 43 pages · 1 unique element
   .site-footer a.legal-link
   Examples: /about, /pricing, /contact  (+40 more)
+```
+### Template grouping — added Day 8, after a real-site measurement
+
+`groupKey` collapses defects that share an accessible name. It does **not** collapse
+templated content, where one defect produces N instances with N different names — product
+cards, search results, table rows. A 30-page catalogue site produced **521 groups**, which
+is an unreadable report and a gate that claims 50 regressions for one template bug.
+
+Third tier, strictly weaker than `groupKey`, using the `structuralPath` the scanner already
+builds:
+
+```ts
+// strip sibling indices: main>ol>li:3>article>a>img  ->  main>ol>li>article>a>img
+templateKey = sha256([ ruleId, source, landmarkRole, indexStrippedStructuralPath ]);
 ```
 
 `--ungrouped` for the flat list. **Verify grouping actually collapses on a live site by

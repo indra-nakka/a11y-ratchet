@@ -1347,3 +1347,157 @@ and `gate.passed` is `true`, since the gate predicate excludes
 changed to make this pass — same story as D50: the architecture already
 had this property; today supplied the config layer that could exercise it,
 and the test that proves it.
+
+---
+
+## 2026-08-20 — Day 9
+
+### D62. Focus-path probe identity: duplicated, not shared with `scan/axe.ts`
+
+`scan/probes/focusPath.ts` needs the same tiered-identity candidate
+extraction (`identity/fingerprint.ts`'s `IdentityCandidates`) `axe.ts`
+already computes, so probe findings fingerprint and group consistently
+with axe findings. Considered extracting the shared in-page tree-walking
+helpers (`nearestLandmarkRole`, `buildSemanticPath`, `buildStructuralPath`,
+`nearestPrecedingHeadingText`, `nearestStableAncestor`, …) into one
+injectable module both files call into, instead of `focusPath.ts` growing
+its own ~250-line copy.
+
+Decided against it, for today: `identity/fingerprint.ts`'s own docstring
+calls it "the highest-risk module in the build," and `axe.ts`'s DOM-reading
+half of it is settled, bug-fixed code (D28's stable-ancestor fix, D33's
+heading-context fix) that Day 9's scope never named. Refactoring it on a
+probe-focused day, right before Day 10's `templateKey` work also touches
+`structuralPath`, risked exactly the kind of disturbance `CLAUDE.md`'s
+working agreement warns against ("the plan is sequenced so the
+highest-risk component is designed against a settled type contract").
+Duplicated instead, with two deliberate departures from a byte-for-byte
+copy:
+
+- `buildSemanticPath` is simplified — raw explicit role or tag name per
+  ancestor level, not `axe.ts`'s fuller implicit-role table (`ul` → `list`,
+  etc.). Tier 4/5 only matter for a focusable element with NO accessible
+  name at all, which is already rare (most are links/buttons/inputs, and an
+  unlabelled one is usually already a separate axe violation) - full
+  parity buys little for that case.
+- The `(c)` cycle-detection heuristic (see D63 below) doesn't need
+  `nearestStableAncestor`'s generated-id filtering logic duplicated for its
+  own sake; `buildStructuralPath` still uses it because Tier 5 genuinely
+  needs a stable anchor, so `isIdGenerated`/`GENERATED_ID_PATTERNS` (the
+  latter already a shared export, not duplicated) came along.
+
+Left as an explicit follow-up, not silently accepted: if `axe.ts`'s
+identity extraction changes again, `focusPath.ts`'s copy will not notice.
+A future day should extract the shared subset once both call sites have
+enough real mileage to know which parts are actually worth sharing.
+
+### D63. Chromium's focus-scroll centres the target, it does not snap to an edge — found while building the sticky-header fixture, not assumed
+
+`01 §6.2`'s obscured-focus check needed a fixture with a control the
+browser would scroll to a specific, obscured position when Tab-focused.
+First attempt: a normal-height (60px) sticky header, an unmitigated link
+below the fold, and a second link with `scroll-margin-top: 76px`. It did
+not reproduce anything — empirically (`page.evaluate`, not assumption) the
+unmitigated link landed at `rect.top ≈ 389px` on an 800px-tall viewport,
+nowhere near the header, and neither link was covered.
+
+The reason: Chromium's focus-triggered scroll does not snap the target
+flush to the nearest viewport edge (what a naive reading of "scroll it
+into view" suggests) - it **centres** the target vertically in the
+viewport. `rect.top ≈ 389` on an 800px viewport is consistent with
+`scrollY ≈ elementCenterY − 400`, confirmed by recomputing the element's
+absolute page position and matching it against the observed `scrollY`.
+This means a slim nav-height sticky header will rarely obscure anything
+under Tab-only focus movement in practice - it would need the target to
+sit very near the top of the whole document (where the centring
+calculation clamps against `scrollY = 0`) to land under a short header.
+
+Fixed the fixture, not the detection logic (`checkObscured` itself needed
+no change - it measures the ACTUAL rendered position after scroll settles,
+whatever produced it, which is the only way to be correct regardless of
+which scroll algorithm a given browser uses): made the sticky element tall
+enough (440px) to reach the vertical band centring lands elements in at
+this viewport size, and increased the "correct fix" link's
+`scroll-margin-top` to 500px, tuned empirically against this exact layout
+via a throwaway script, not derived analytically from the 440px figure (the
+relationship isn't 1:1 — a 76px margin only shifted the rendered position
+by about half that). Documented in the fixture's own comment so a future
+reader doesn't "simplify" it back to a slim header and silently break the
+test. A large sticky promo/consent banner - not a slim nav bar - is also a
+realistic real-world shape for this exact bug, so the fixture is honest as
+well as reliable.
+
+**Consequence for the algorithm, not just the fixture:** §6.3(c)'s literal
+wording ("focus cycles without covering all known tabbables") turned out
+to describe the wrong condition once modelled against a two-element modal
+trap (`#modal-input`, `#modal-save`, nothing else tabbable on the page).
+Native Tab reaching the true end of a page's tab sequence always exits the
+document (`left-document`); it never revisits an earlier element on its
+own. A cycle back to an already-visited element can therefore only happen
+via the page's own JS redirecting focus - which is always suspicious,
+`visited.length < tabbableCount` or not. Comparing against the tabbable
+count would have exempted the worst case (a trap that covers every
+tabbable element on the page, leaving nothing else reachable at all) from
+ever being flagged. Implemented as "any cycle is a trap candidate,"
+dropping the count comparison; `01 §6.3` should be corrected to match on a
+day that revisits the probe spec.
+
+### D64. Focus-path probe: verified against the fixtures AND a real site, not trusted on green tests alone
+
+**Fixtures (`test/scan/probes/focusPath.test.ts`), all four planted
+cases plus the clean-page and closed-shadow negatives:**
+
+- `07-focus-sticky`: the unmitigated link is flagged (`probe/focus-obscured`,
+  2.4.11, needs-review); the `scroll-margin-top`-corrected link is not.
+- `08-focus-trap`: the escape-less modal (no Escape handler, no close
+  button reachable by keyboard) is flagged (`probe/keyboard-trap`, 2.1.2);
+  the WAI-ARIA APG roving-tabindex toolbar is not, and no probe finding of
+  any kind traces back to it (checked via `html` content, not just
+  selector, since the toolbar's own buttons carry no id).
+- `10-clean` and every pre-existing Day 1-8 fixture: zero probe findings,
+  confirmed as a side effect of the full suite passing once probes ran by
+  default (no fixture needed a "must not flag" test written for it
+  retroactively - none of them have anything `position: fixed`/`sticky` or
+  any focus-trapping JS to begin with, verified by grep before trusting
+  that).
+- `09-shadow`'s closed shadow host is recorded as a `probeBlindRegion`
+  (`reason: 'closed-shadow-root'`, `unevaluatedCriteria: ['2.4.11',
+  '2.1.2']`), not silently skipped or misread as zero findings.
+
+**Real site, per the explicit instruction not to trust green tests alone:**
+crawled 8 pages of `vuejs.org`'s own documentation (`--mode audit`, a real
+`position: fixed` header, 55px) - chosen after `developer.mozilla.org`'s
+strict CSP (`script-src` with no `unsafe-inline` and no matching hash)
+turned out to block axe-core's `addScriptTag` injection outright, failing
+the page before the probe ever ran (a real, pre-existing tool limitation
+this surfaced, not a Day 9 regression - noted here since Day 9 is what
+found it, not fixed here since fixing it means switching axe's injection
+strategy, out of scope for a probe day).
+
+**Result: 2 findings across 8 pages, both `probe/keyboard-trap`, both on
+the same CodeMirror-based embedded code editor's hidden input `<textarea>`
+(`/tutorial/` and `/examples/`) - both verified genuine, not assumed.**
+Manually drove the same element with Playwright outside the scan: focused
+the textarea, pressed Escape (focus stayed), then Tab (focus still did not
+move) - no documented escape mechanism (`aria-label`, `title`, `role` were
+all empty on the element). This is a real, undocumented keyboard trap on
+Vue's own docs site, not a probe false positive. Zero `probe/focus-obscured`
+findings despite the real fixed header - plausible true negative rather
+than a missed detection, since VitePress (the site's generator) is known
+to handle scroll offset for its own fixed nav correctly, and D63's fixture
+work already proved the geometry check fires when genuine obscuring
+exists.
+
+**Honest framing of what this does and doesn't prove:** 2 findings from 8
+pages is too small a sample to publish as a false-positive RATE (`01 §6.4`
+commits to publishing the rate, not to this run standing in for it - a
+real, larger multi-site audit is `03-EVIDENCE.md`'s real-site-audit
+work, not Day 9's). What it does establish: on this run, every finding
+that fired was genuine on manual inspection, and the probe did not
+misfire on a real, non-trivial site's real fixed header. The known,
+accepted false-positive shape from `01 §6.4` (roving-tabindex widgets
+where focus legitimately stays on a container) did not appear in this
+sample at all - Vue's docs happen not to have one in the crawled pages -
+so this run cannot speak to that failure mode's real-world rate either;
+`08-focus-trap`'s fixture is what demonstrates the probe gets that
+specific case right, not this crawl.

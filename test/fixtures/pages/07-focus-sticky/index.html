@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Focus obscured by a sticky header — a11y-ratchet fixtures</title>
+
+    <!--
+      The focus-path probe's core case (01 §6.2, §6.3(d)): a sticky element
+      that covers a control when it receives keyboard focus.
+
+        #obscured-link  — no scroll-margin-top. When Tab-focused, Chromium's
+                          focus-scroll lands it squarely behind the sticky
+                          element. MUST be flagged (2.4.11).
+        #clear-link     — scroll-margin-top big enough to clear the sticky
+                          element. The correct fix. MUST NOT be flagged -
+                          this is the case the whole scroll-margin check in
+                          §6.2 exists to get right; flagging it would
+                          concentrate false positives on exactly the
+                          well-implemented page.
+
+      Chromium's focus-scroll centres the newly-focused element in the
+      viewport rather than snapping it flush to an edge, so the sticky
+      element here is deliberately tall (440px, not a slim nav bar) -
+      chosen empirically to actually reach the vertical band a centred
+      focus-scroll lands elements in on an 800px default viewport. A tall
+      sticky promo/consent banner covering that much of the screen is a
+      common real pattern, not a contrived one; it just is not literally
+      the word "header" usually conjures. scroll-margin-top is set well
+      past the element's height for the same centring reason - measured
+      empirically against this exact layout, not derived from the 440px
+      figure directly (see DECISIONS.md D63).
+    -->
+
+    <style>
+      body {
+        margin: 0;
+        background: #ffffff;
+        color: #1a1a1a;
+        font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+        font-size: 16px;
+        line-height: 1.6;
+      }
+
+      .sticky-header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        /* Tall for a "header" - chosen empirically so it actually reaches
+           where Chromium's focus-scroll (which centers the target in the
+           viewport, not flush-to-edge) lands a freshly-focused element on
+           an 800px-tall default viewport. A slim nav bar mostly misses that
+           point at typical page lengths; a big sticky promo/consent banner
+           - a common real-world pattern - does not, and is exactly the
+           shape of bug this fixture needs to reproduce deterministically. */
+        height: 440px;
+        display: flex;
+        align-items: center;
+        padding: 0 1rem;
+        background: #0b4f9e;
+        color: #ffffff;
+        font-weight: bold;
+      }
+
+      main {
+        max-width: 46rem;
+        margin: 0 auto;
+        padding: 1.25rem 1rem;
+      }
+
+      .filler {
+        height: 900px;
+      }
+
+      a {
+        color: #0b4f9e;
+        text-decoration: underline;
+      }
+
+      .clear-link {
+        /* The correct fix: leave enough room above for the sticky header
+           (plus a little breathing room) when scrolled into view. */
+        scroll-margin-top: 500px;
+      }
+
+      p.spacer {
+        height: 400px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <header class="sticky-header">Northfield Water Authority</header>
+
+    <main>
+      <h1>Annual report</h1>
+
+      <div class="filler">
+        <p>Placeholder content to force scrolling before the first link below.</p>
+      </div>
+
+      <p><a id="obscured-link" href="#services">Read the service schedule</a></p>
+
+      <p class="spacer">More placeholder content between the two links.</p>
+
+      <p><a id="clear-link" class="clear-link" href="#contact">Contact the billing team</a></p>
+
+      <div class="filler">
+        <p>Placeholder content after both links.</p>
+      </div>
+    </main>
+  </body>
+</html>

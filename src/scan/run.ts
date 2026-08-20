@@ -26,6 +26,7 @@ import {
 } from './browser.js';
 import { installThirdPartyBlock, resolveModePolicy } from './modes.js';
 import { normaliseRawFindings } from './normalise.js';
+import { FOCUS_OBSCURED_RULE_ID, KEYBOARD_TRAP_RULE_ID, runFocusPathProbe } from './probes/focusPath.js';
 import { settle } from './settle.js';
 import { Frontier, resolveSameOriginLinks, type FrontierEntry } from '../crawl/frontier.js';
 import { fetchRobotsRules, type RobotsRules } from '../crawl/filters.js';
@@ -34,7 +35,7 @@ import { loadConfig } from '../config/load.js';
 import { applySuppressions } from '../config/suppress.js';
 import type { SuppressionEntry } from '../config/schema.js';
 import { urlTemplateFor } from '../identity/fingerprint.js';
-import { A11yRatchetError, NotImplementedError } from '../errors.js';
+import { A11yRatchetError } from '../errors.js';
 import { AXE_CORE_VERSION, TOOL_NAME, TOOL_VERSION } from '../meta.js';
 import type {
   Finding,
@@ -66,15 +67,16 @@ const DEFAULT_SETTLE: SettleSettings = {
 /** `01 §2`: politeness delay between requests to one origin. */
 const DEFAULT_DELAY_MS = 250;
 
+/** `01 §6`: the one probe shipping in v1, both its detections, run unless `options.probes` narrows or empties this. */
+const DEFAULT_PROBE_IDS = [FOCUS_OBSCURED_RULE_ID, KEYBOARD_TRAP_RULE_ID];
+
 export async function runScan(options: ScanOptions): Promise<Report> {
   const { seed } = options;
   const seedKindCount = [seed.url, seed.sitemap, seed.urlList].filter((value) => value !== undefined).length;
   if (seedKindCount !== 1) {
     throw new A11yRatchetError('scan() requires exactly one of seed.url, seed.sitemap, seed.urlList', 3);
   }
-  if (options.probes && options.probes.length > 0) {
-    throw new NotImplementedError('interaction probes', 'Day 9');
-  }
+  const enabledProbeIds = options.probes ?? DEFAULT_PROBE_IDS;
 
   const runStartedAt = new Date();
   const { config } = await loadConfig(options.configPath);
@@ -172,6 +174,7 @@ export async function runScan(options: ScanOptions): Promise<Report> {
         includeBestPractice,
         config.suppressions,
         runStartedAt,
+        enabledProbeIds,
       );
 
       if (discoverLinks && !result.page.error && !frontier.atPageCap) {
@@ -214,8 +217,7 @@ export async function runScan(options: ScanOptions): Promise<Report> {
       blockedOrigins: [...blockedOrigins],
       concurrency,
       settle: settleSettings,
-      // Day 9: focus-path probe ids, once probes exist to enable.
-      probesEnabled: [],
+      probesEnabled: enabledProbeIds,
     };
 
     const tool: ToolInfo = {
@@ -330,6 +332,7 @@ async function scanOnePage(
   includeBestPractice: boolean,
   suppressions: readonly SuppressionEntry[],
   runStartedAt: Date,
+  enabledProbeIds: readonly string[],
 ): Promise<{ page: PageResult; findings: Finding[] }> {
   const startedAt = new Date();
   const urlTemplate = urlTemplateFor(url);
@@ -338,7 +341,22 @@ async function scanOnePage(
     const settleResult = await settle(page, url, settleSettings);
     await injectAxeIntoAllFrames(page);
     const raw = await runAxe(page, { includeBestPractice });
-    const findings = applySuppressions(normaliseRawFindings(raw, { url, urlTemplate }), suppressions, runStartedAt);
+    const axeFindings = normaliseRawFindings(raw, { url, urlTemplate });
+
+    const probesRun = enabledProbeIds.length > 0;
+    let probeFindings: Finding[] = [];
+    let probeBlindRegions: PageResult['probeBlindRegions'] = [];
+    if (probesRun) {
+      const probeResult = await runFocusPathProbe(page, { url, urlTemplate });
+      // The traversal always checks both detections; --probes narrows which
+      // of their findings are kept, not which detections run (`01 §6`: one
+      // Tab-driven pass covers both, there is no cheaper way to run "only
+      // one" of them).
+      probeFindings = probeResult.findings.filter((finding) => enabledProbeIds.includes(finding.ruleId));
+      probeBlindRegions = probeResult.blindRegions;
+    }
+
+    const findings = applySuppressions([...axeFindings, ...probeFindings], suppressions, runStartedAt);
     const title = await page.title();
 
     const pageResult: PageResult = {
@@ -349,8 +367,8 @@ async function scanOnePage(
       ...(title ? { title } : {}),
       startedAt: startedAt.toISOString(),
       durationMs: settleResult.durationMs,
-      probesRun: false,
-      probeBlindRegions: [],
+      probesRun,
+      probeBlindRegions,
       counts: tallyBucketCounts(findings),
       settleDegraded: settleResult.fontsReadyCapHit || settleResult.imageDecodeCapHit || settleResult.quietCapHit,
     };
