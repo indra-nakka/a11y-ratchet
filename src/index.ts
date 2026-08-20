@@ -15,7 +15,7 @@
 import { NotImplementedError } from './errors.js';
 import { checkBaseline as checkBaselineImpl, regenerateBaseline as regenerateBaselineImpl, updateBaseline as updateBaselineImpl } from './baseline/lifecycle.js';
 import { runCheckConfig } from './config/check.js';
-import { runDiff } from './diff/run.js';
+import { checkBaselineRunConfig as checkBaselineRunConfigImpl, runDiff } from './diff/run.js';
 import { renderDiffSummary } from './report/diffSummary.js';
 import { renderReportHtml } from './report/html/render.js';
 import { renderDiffHtml } from './report/html/renderDiff.js';
@@ -36,6 +36,7 @@ import type {
   ManualOptions,
   Report,
   ReportOptions,
+  RunIncompatibility,
   ScanOptions,
 } from './types.js';
 
@@ -87,6 +88,24 @@ export function scan(options: ScanOptions): Promise<Report> {
  */
 export function diff(base: Report, head: Report, options?: DiffOptions): DiffResult {
   return runDiff(base, head, options ?? {});
+}
+
+/**
+ * Compare a committed baseline's run config against the config a scan is
+ * about to use, before that scan runs (`01 §11`, Day 13) — the same check
+ * `diff()` performs unconditionally after a real head scan (exit 6, no
+ * override), surfaced early so CI can fail in seconds instead of after a
+ * multi-minute crawl. Omitted `candidate` fields default to this
+ * project's own CLI defaults, matching what a bare `scan()` call actually
+ * resolves to. Best-effort: a `--config` file overriding a default this
+ * candidate didn't know about is still caught correctly by `diff()`
+ * itself afterward, just later.
+ */
+export function checkBaselineRunConfig(
+  baseline: Report,
+  candidate: Parameters<typeof checkBaselineRunConfigImpl>[1],
+): RunIncompatibility[] {
+  return checkBaselineRunConfigImpl(baseline, candidate);
 }
 
 /**

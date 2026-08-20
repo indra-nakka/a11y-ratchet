@@ -43,7 +43,7 @@ const COMMANDS: CommandUnderTest[] = [
 ];
 
 /** `baseline update|regenerate|check` each declare and consume their own options independently. */
-const BASELINE_SUBCOMMANDS: CommandUnderTest[] = ['update', 'regenerate', 'check'].map((sub) => ({
+const BASELINE_SUBCOMMANDS: CommandUnderTest[] = ['update', 'regenerate', 'check', 'check-run-config'].map((sub) => ({
   name: `baseline ${sub}`,
   factory: () => {
     const found = baselineCommand().commands.find((c) => c.name() === sub);

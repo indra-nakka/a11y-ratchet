@@ -8,6 +8,7 @@ import { classifyMatchedPair } from './classify.js';
 import { computeGate } from './gate.js';
 import { DEFAULT_MATCH_THRESHOLD, matchFindings } from './match.js';
 import { A11yRatchetError } from '../errors.js';
+import { DEFAULT_COLOR_SCHEME, DEFAULT_LOCALE, DEFAULT_VIEWPORT } from '../scan/browser.js';
 import type {
   DiffFindings,
   DiffOptions,
@@ -17,9 +18,13 @@ import type {
   PageResult,
   Report,
   RunIncompatibility,
+  RunInfo,
   RunRef,
+  ScanMode,
   UnknownFinding,
 } from '../types.js';
+
+type RunConfigCandidate = Pick<RunInfo, 'mode' | 'viewport' | 'locale' | 'colorScheme' | 'bypassCSP'>;
 
 export function runDiff(base: Report, head: Report, options: DiffOptions = {}): DiffResult {
   const engineDrift = base.tool.axeCoreVersion !== head.tool.axeCoreVersion;
@@ -33,7 +38,7 @@ export function runDiff(base: Report, head: Report, options: DiffOptions = {}): 
     );
   }
 
-  const incompatibleRunConfig = findIncompatibleRunConfig(base, head);
+  const incompatibleRunConfig = findIncompatibleRunConfig(base.run, head.run);
   if (incompatibleRunConfig.length > 0) {
     const detail = incompatibleRunConfig.map((i) => `${i.reason} (base=${i.base}, head=${i.head})`).join(', ');
     throw new A11yRatchetError(
@@ -112,33 +117,61 @@ function toRunRef(report: Report): RunRef {
   };
 }
 
-function findIncompatibleRunConfig(base: Report, head: Report): RunIncompatibility[] {
+function findIncompatibleRunConfig(base: RunConfigCandidate, head: RunConfigCandidate): RunIncompatibility[] {
   const incompatibilities: RunIncompatibility[] = [];
 
-  if (base.run.mode !== head.run.mode) {
-    incompatibilities.push({ reason: 'mode', base: base.run.mode, head: head.run.mode });
+  if (base.mode !== head.mode) {
+    incompatibilities.push({ reason: 'mode', base: base.mode, head: head.mode });
   }
-  if (base.run.viewport.width !== head.run.viewport.width || base.run.viewport.height !== head.run.viewport.height) {
+  if (base.viewport.width !== head.viewport.width || base.viewport.height !== head.viewport.height) {
     incompatibilities.push({
       reason: 'viewport',
-      base: `${base.run.viewport.width}x${base.run.viewport.height}`,
-      head: `${head.run.viewport.width}x${head.run.viewport.height}`,
+      base: `${base.viewport.width}x${base.viewport.height}`,
+      head: `${head.viewport.width}x${head.viewport.height}`,
     });
   }
-  if (base.run.locale !== head.run.locale) {
-    incompatibilities.push({ reason: 'locale', base: base.run.locale, head: head.run.locale });
+  if (base.locale !== head.locale) {
+    incompatibilities.push({ reason: 'locale', base: base.locale, head: head.locale });
   }
-  if (base.run.colorScheme !== head.run.colorScheme) {
-    incompatibilities.push({ reason: 'colorScheme', base: base.run.colorScheme, head: head.run.colorScheme });
+  if (base.colorScheme !== head.colorScheme) {
+    incompatibilities.push({ reason: 'colorScheme', base: base.colorScheme, head: head.colorScheme });
   }
-  if (base.run.bypassCSP !== head.run.bypassCSP) {
+  if (base.bypassCSP !== head.bypassCSP) {
     // A bypassed CSP changes what the page can execute (DECISIONS.md D65) -
     // the same class of phantom-regression risk as mode/viewport/locale/
     // colorScheme, not a stability concern like concurrency/settle.
-    incompatibilities.push({ reason: 'bypassCSP', base: String(base.run.bypassCSP), head: String(head.run.bypassCSP) });
+    incompatibilities.push({ reason: 'bypassCSP', base: String(base.bypassCSP), head: String(head.bypassCSP) });
   }
 
   return incompatibilities;
+}
+
+/**
+ * `findIncompatibleRunConfig`, exposed for a pre-scan check (`01 §11`, the
+ * Action's own "fail fast before the slow scan step" pattern) - compares a
+ * committed baseline's actual run config against the config a scan is
+ * ABOUT to use, before that scan happens. `candidate` fields default to
+ * this project's own CLI defaults when omitted, since that's what a bare
+ * `scan` invocation (no `--viewport`/`--locale`/`--color-scheme`/
+ * `--bypass-csp`) actually resolves to - matching `scan/browser.ts`'s
+ * `DEFAULT_VIEWPORT`/`DEFAULT_LOCALE`/`DEFAULT_COLOR_SCHEME` so this can
+ * never silently drift from what `scan()` itself would do. This is a
+ * best-effort fast path, not the source of truth: `diff()` re-checks the
+ * REAL head run's config unconditionally once the scan has actually
+ * happened, so a config file overriding these defaults in a way this
+ * pre-check can't see is still caught correctly, just later.
+ */
+export function checkBaselineRunConfig(
+  baseline: Report,
+  candidate: { mode: ScanMode; viewport?: RunInfo['viewport']; locale?: string; colorScheme?: RunInfo['colorScheme']; bypassCSP?: boolean },
+): RunIncompatibility[] {
+  return findIncompatibleRunConfig(baseline.run, {
+    mode: candidate.mode,
+    viewport: candidate.viewport ?? DEFAULT_VIEWPORT,
+    locale: candidate.locale ?? DEFAULT_LOCALE,
+    colorScheme: candidate.colorScheme ?? DEFAULT_COLOR_SCHEME,
+    bypassCSP: candidate.bypassCSP ?? false,
+  });
 }
 
 /* -------------------------------------------------------------------------- */
