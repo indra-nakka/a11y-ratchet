@@ -44,8 +44,34 @@ export async function readReport(path: string): Promise<Report> {
     );
   }
 
+  const missing = REQUIRED_TOP_LEVEL_FIELDS.filter((field) => !(field in (parsed as object)));
+  if (missing.length > 0) {
+    throw new A11yRatchetError(
+      `Report at ${path} claims schemaVersion "${SUPPORTED_SCHEMA_VERSION}" but is missing ` +
+        `required field${missing.length === 1 ? '' : 's'}: ${missing.join(', ')}. It is likely ` +
+        `truncated or hand-edited - regenerate it with a fresh scan rather than repairing it by hand.`,
+      3,
+    );
+  }
+
   return parsed as Report;
 }
+
+/**
+ * A shallow "does this look like a real Report" gate, not full structural
+ * validation - `Report` has no runtime (Zod) schema the way `Config` does,
+ * and building one is a bigger lift than today's scope. This exists
+ * because `schemaVersion` alone lets a truncated or hand-edited file (e.g.
+ * `{"schemaVersion": "1.3", "findings": []}`) through as "valid", which
+ * then fails deep inside `diff()`/`renderDiff()` with a raw
+ * `TypeError: Cannot read properties of undefined` instead of a message
+ * that says what's wrong - the exit code was already correct (any thrown
+ * `Error` becomes exit 3 via the CLI's catch-all), only the message
+ * quality was missing. Every top-level `Report` field, so the common
+ * "half the file got cut off" case is caught, without validating each
+ * field's own shape.
+ */
+const REQUIRED_TOP_LEVEL_FIELDS = ['tool', 'run', 'pages', 'findings', 'groups', 'templateGroups', 'summary'] as const;
 
 /**
  * Renders a report (or any JSON-shaped value) with stable (alphabetised)

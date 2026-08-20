@@ -132,6 +132,20 @@ runs:
         fi
       working-directory: ${{ github.workspace }}
 
+    # Same place as the baseline-exists check, same reason: `diff()` would
+    # refuse this anyway (exit 6, no override - D5/D83) once a head scan
+    # existed to compare, but catching it here costs seconds instead of
+    # the full scan. Only checks `mode`, the one dimension this Action
+    # actually exposes as an input - viewport/locale/colour-scheme/CSP
+    # default to this project's own scan defaults on both sides unless a
+    # `--config` file overrides them, which this pre-check cannot see; the
+    # real `diff` step after the scan still catches that case correctly.
+    - name: Check the baseline's run configuration matches
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        node "${{ github.action_path }}/dist/cli/index.js" baseline check-run-config "${{ inputs.baseline }}" --mode "${{ inputs.mode }}"
+
     - name: Scan
       shell: bash
       working-directory: ${{ github.workspace }}

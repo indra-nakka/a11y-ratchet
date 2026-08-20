@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Strict CSP</title>
+</head>
+<body>
+  <!--
+    No planted defects here on purpose - this fixture exists to test the
+    scan's own error path (axe-injection-failed, DECISIONS.md D65), not
+    axe's detection. The server (test/fixtures/server.ts) sends a
+    Content-Security-Policy: script-src 'self' header for this directory,
+    with no 'unsafe-inline' and no matching hash, so axe-core's injected
+    <script> tag is blocked by the browser before it ever runs - without
+    --bypass-csp, this page cannot be scanned at all.
+  -->
+  <main>
+    <h1>Strict CSP fixture</h1>
+    <p>This page is intentionally unscannable without --bypass-csp.</p>
+  </main>
+</body>
+</html>
