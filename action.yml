@@ -73,11 +73,24 @@ runs:
       with:
         node-version: '20'
 
+    # `hashFiles()` only sees paths under `$GITHUB_WORKSPACE` - it cannot
+    # read the Action's own directory when consumed as `uses: owner/repo@ref`
+    # (checked out elsewhere entirely), and even for this repo's own
+    # `uses: ./` demo workflow it fails on `github.action_path`'s exact
+    # form. Hashed by hand instead, from a step that actually runs in
+    # `github.action_path`, so both cache keys below work identically
+    # whether this Action is consumed locally or from another repo.
+    - name: Compute a cache key from a11y-ratchet's own lockfile
+      id: cache-key
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: echo "lockfile-hash=$(sha256sum package-lock.json | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
     - name: Cache a11y-ratchet's own dependencies
       uses: actions/cache@v4
       with:
         path: ${{ github.action_path }}/node_modules
-        key: a11y-ratchet-deps-${{ runner.os }}-${{ hashFiles(format('{0}/package-lock.json', github.action_path)) }}
+        key: a11y-ratchet-deps-${{ runner.os }}-${{ steps.cache-key.outputs.lockfile-hash }}
 
     - name: Install a11y-ratchet
       shell: bash
@@ -85,15 +98,16 @@ runs:
       run: npm ci
 
     # The slowest step by an order of magnitude without this cache - a
-    # Chromium download, not an npm install. Keyed on the lockfile hash so
-    # it invalidates itself the moment `playwright`'s pinned version (an
-    # exact version, not a range - a Chromium bump can shift contrast
-    # results at the margins) actually changes, and never otherwise.
+    # Chromium download, not an npm install. Keyed on the same lockfile
+    # hash so it invalidates itself the moment `playwright`'s pinned
+    # version (an exact version, not a range - a Chromium bump can shift
+    # contrast results at the margins) actually changes, and never
+    # otherwise.
     - name: Cache the Playwright browser download
       uses: actions/cache@v4
       with:
         path: ~/.cache/ms-playwright
-        key: playwright-chromium-${{ runner.os }}-${{ hashFiles(format('{0}/package-lock.json', github.action_path)) }}
+        key: playwright-chromium-${{ runner.os }}-${{ steps.cache-key.outputs.lockfile-hash }}
 
     - name: Install Chromium
       shell: bash
