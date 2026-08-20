@@ -112,6 +112,12 @@ export async function start(): Promise<string> {
           // Fixtures change between runs of the suite; never let a proxy or the
           // browser under test serve a stale copy.
           'cache-control': 'no-store',
+          // 11-strict-csp: no 'unsafe-inline', no matching hash - blocks
+          // axe-core's injected <script> tag outright (DECISIONS.md D65),
+          // on purpose, to exercise the axe-injection-failed error path.
+          ...((req.url ?? '').startsWith('/11-strict-csp/')
+            ? { 'content-security-policy': "script-src 'self'" }
+            : {}),
         });
         createReadStream(file).pipe(res);
       })();

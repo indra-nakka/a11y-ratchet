@@ -2,7 +2,7 @@ import { writeFile } from 'node:fs/promises';
 import { Command } from 'commander';
 
 import { exitCodeForScan, renderReport, scan, writeReport } from '../../index.js';
-import { parseColorScheme, parseSettleStrategy, parseViewport } from '../parse.js';
+import { parseColorScheme, parseSettleStrategy, parseViewport, unreachableBaseUrlError } from '../parse.js';
 import { run } from '../runtime.js';
 import type { CrawlSeed, ScanMode } from '../../types.js';
 
@@ -98,6 +98,14 @@ Notes:
           ...(options.probes !== undefined ? { probes: options.probes === false ? [] : options.probes } : {}),
           ...(options.includeBestPractice !== undefined ? { includeBestPractice: options.includeBestPractice } : {}),
         });
+
+        // Scoped to this command only, not scan() itself: `diff`/`baseline
+        // check` still need a Report whose pages are ALL errored to stay
+        // possible (a site that went down entirely between baseline and
+        // head is exactly the "page-error" signal those commands exist to
+        // surface, not a tool error to crash on).
+        const unreachable = unreachableBaseUrlError(report);
+        if (unreachable) throw unreachable;
 
         if (options.out) {
           await writeReport(report, options.out);

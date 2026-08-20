@@ -10,6 +10,7 @@
 
 import { chromium, type Browser, type BrowserContext } from 'playwright';
 
+import { A11yRatchetError } from '../errors.js';
 import type { Viewport } from '../types.js';
 
 /** `01 §9`: above ~8, results destabilise on modest hardware. */
@@ -96,7 +97,22 @@ export class BrowserPool {
   }
 
   static async launch(options: BrowserPoolOptions = {}): Promise<BrowserPool> {
-    const browser = await chromium.launch();
+    let browser: Browser;
+    try {
+      browser = await chromium.launch();
+    } catch (error) {
+      // The most common cause by far: the pinned Chromium build was never
+      // downloaded (a fresh `npm install`, or a CI cache miss). Playwright's
+      // own error message already says as much, but wrapped in an
+      // A11yRatchetError this becomes exit 3 unconditionally - without it,
+      // an uncaught Playwright error would still exit non-zero via the CLI's
+      // catch-all, but as an unrelated exception, not a diagnosed tool error.
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new A11yRatchetError(
+        `Could not launch Chromium: ${detail}\n\nIf the browser binary is missing, install it with:\n  npx playwright install chromium`,
+        3,
+      );
+    }
     return new BrowserPool(browser, options);
   }
 

@@ -77,19 +77,43 @@ export interface RawFinding {
 }
 
 /**
+ * Thrown only for the MAIN frame's injection failing - a sub-frame can
+ * legitimately be cross-origin (benign, swallowed below), but the main
+ * frame is by definition same-origin as the page itself, so its injection
+ * has no benign explanation. In practice this is a strict `script-src` CSP
+ * with no `unsafe-inline`/matching hash blocking the injected `<script>`
+ * tag outright (`DECISIONS.md` D65, found against `developer.mozilla.org`) -
+ * distinguished here so `scan/run.ts` can classify it as
+ * `PageErrorKind: 'axe-injection-failed'` with a `--bypass-csp` pointer,
+ * rather than a generic `navigation-failed` from whatever downstream
+ * `ReferenceError` an undefined `axe` global produces.
+ */
+export class AxeInjectionFailedError extends Error {
+  constructor(cause: unknown) {
+    super(`axe-core script injection failed on the main frame (likely a strict script-src CSP): ${cause instanceof Error ? cause.message : String(cause)}`);
+    this.name = 'AxeInjectionFailedError';
+  }
+}
+
+/**
  * Inject axe-core into every frame of the page (`01 §4`: "all-frames").
  * Cross-origin frames reject script injection; those are recorded as
  * unreachable rather than causing the scan to fail, so axe's own cross-frame
- * results simply omit them.
+ * results simply omit them. The main frame is held to a different standard -
+ * see `AxeInjectionFailedError`.
  */
 export async function injectAxeIntoAllFrames(page: Page): Promise<void> {
+  const mainFrame = page.mainFrame();
   await Promise.all(
     page.frames().map(async (frame) => {
       try {
         await frame.addScriptTag({ content: AXE_SOURCE });
-      } catch {
-        // Cross-origin frame, or the frame detached mid-injection. Not fatal:
-        // axe's iframe messaging protocol simply gets no reply from it.
+      } catch (error) {
+        if (frame === mainFrame) {
+          throw new AxeInjectionFailedError(error);
+        }
+        // A sub-frame: cross-origin, or it detached mid-injection. Not
+        // fatal - axe's iframe messaging protocol simply gets no reply.
       }
     }),
   );

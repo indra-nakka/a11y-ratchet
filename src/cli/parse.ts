@@ -7,7 +7,7 @@
  */
 
 import { A11yRatchetError } from '../errors.js';
-import type { ScanOptions, SettleStrategy, Viewport } from '../types.js';
+import type { Report, ScanOptions, SettleStrategy, Viewport } from '../types.js';
 
 export type ColorScheme = NonNullable<ScanOptions['colorScheme']>;
 
@@ -35,4 +35,24 @@ export function parseSettleStrategy(raw: string): SettleStrategy {
     throw new A11yRatchetError(`--settle-strategy must be one of ${SETTLE_STRATEGIES.join(', ')}, got "${raw}".`, 3);
   }
   return raw as SettleStrategy;
+}
+
+/**
+ * `01 §10` lists "unreachable base URL" under exit 3. Every attempted page
+ * failing to load is that scenario for the `scan` CLI command specifically
+ * - a Report otherwise records page errors rather than throwing
+ * (`CLAUDE.md` invariant 2), which is right for a partial-failure crawl but
+ * reads as a silent pass ("0 violations!") when NOTHING was reachable at
+ * all, the exact "reports zero violations because it did nothing" failure
+ * mode this project treats as the worst one a scanner can have.
+ */
+export function unreachableBaseUrlError(report: Report): A11yRatchetError | undefined {
+  if (report.summary.pages.total === 0 || report.summary.pages.scanned > 0) return undefined;
+
+  const firstError = report.pages.find((page) => page.error)?.error;
+  return new A11yRatchetError(
+    `Every page failed to load (${report.summary.pages.total} attempted) - the base URL is likely ` +
+      `unreachable.${firstError ? ` First error: ${firstError.kind} — ${firstError.message}` : ''}`,
+    3,
+  );
 }
