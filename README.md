@@ -267,7 +267,14 @@ If you need commercial support and guided manual testing, buy axe DevTools Pro.
 
 Focus-visible (2.4.7), tab-order (2.4.3) and off-screen-focus probes · interaction states
 via user-supplied scripts · `--repeat` instability detection · cross-page consistency
-checks (3.2.3/3.2.4/3.2.6) · report filters · non-Chromium engines.
+checks (3.2.3/3.2.4/3.2.6) · report filters · non-Chromium engines · full page-error
+classification (`http-error`, `probe-failed` and `page-crashed` are typed but never
+produced yet — an HTTP error response, a probe crash independent of navigation, and a
+full page crash all currently fall through to the same generic `navigation-failed`/
+`navigation-timeout`/`axe-injection-failed` classification, found while fixing the CSP
+misclassification on Day 13) · a pre-emptive check that warns when an Action workflow's
+own `mode`/`config` input changes in a way that would trip the exit-6 run-config refusal,
+rather than only catching it once the check actually runs.
 
 ## Licence
 

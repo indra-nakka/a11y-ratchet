@@ -2166,3 +2166,201 @@ for today's scope (the refusal itself is correct and loud, `01 §10`'s
 whole point), but a pre-emptive lint/warning on `action.yml` input
 changes would be a natural Day 13+ addition if this proves to strand
 people in practice.
+
+---
+
+## 2026-08-21 — Day 13
+
+### D86. Demo PRs verified logged-out; CLI flag coverage test finds two more silent no-ops
+
+**Logged-out visibility**: could not literally open a private browser
+window, so verified the mechanism a logged-out browser actually relies
+on - the fully unauthenticated public REST API (`curl`, no token) against
+both demo PRs' HEAD commits. Both returned the real check conclusion
+(`failure` / `success`) with zero authentication, which is exactly what
+GitHub's own PR page fetches to render the check-status widget for any
+viewer on a public repo. `pull_request` triggering was never actually
+broken (confirmed via `gh run list` - both runs completed with the
+intended conclusion before this check even started), so the "fix the
+trigger first" contingency didn't apply.
+
+**CLI flag coverage test** (`test/cli/flagCoverage.test.ts`): enumerates
+every Commander option on every command (plus each `baseline` subcommand
+independently) and asserts `options.<attributeName>` appears in that
+command's own action-body source text - the same shape `--fail-on`
+shipped as a silent no-op with on Day 11 (D76), now caught systematically
+rather than by manual re-discovery a fourth time. It immediately found
+two MORE commands in the same state, neither named in today's carryover
+list: `report`'s `--format`/`--out`/`--ungrouped`/`--diff` were declared
+and the action body still hardcoded `format: 'html'` and discarded the
+render result entirely (never printed, never written) - the command did
+nothing useful at all; `scan`'s `--viewport`/`--locale`/`--color-scheme`/
+`--settle-strategy`/`--settle-quiet-ms`/`--probes`/`--no-probes`/
+`--include-best-practice` were the carryover items. Both fixed. Parsing
+for `--viewport`/`--color-scheme`/`--settle-strategy` extracted into
+`src/cli/parse.ts` so `scan` and the new `baseline check-run-config`
+(D88) share it rather than duplicate it a second time.
+
+Also removed `--no-color` from the top-level program: declared since Day
+1, read nowhere, and unlike every other gap here it never could be wired
+- nothing in this codebase produces coloured output at all (no
+chalk/picocolors/kleur import anywhere), so there was no feature for the
+flag to toggle. A flag for a feature that doesn't exist is worse than no
+flag; removed rather than left as permanent decoration.
+
+### D87. `manual` command implemented for real - 55 hand-written prompts, not the Day-1 placeholder
+
+`wcag/coverage.ts`'s `entry()` helper generated every criterion's
+`manualChecks` from one constant, `MANUAL_PROMPT_PLACEHOLDER =
+'TODO(Day 13): manual-check prompt.'` - functionally present (the Day-1
+smoke test only checked `manualChecks.length > 0`) but content-empty.
+`manualPrompt` is now a REQUIRED field in `entry()`'s options object,
+not optional with a placeholder default - the required-field TypeScript
+error at every one of the 55 call sites was the forcing function that
+made "wrote a real prompt for this one but forgot that one" impossible
+rather than merely unlikely. Each prompt is grounded in the same `note`
+already explaining why automation falls short for that criterion, phrased
+as `03 §1.8` requires: imperative, testable in under a minute.
+`test/wcag/coverage.test.ts`'s existing "at least one manual check stub"
+test renamed and strengthened to assert no prompt contains `TODO` and
+every prompt exceeds 20 characters - a regression guard against the
+exact gap just closed, not just presence.
+
+`report/manualChecklist.ts` (new): the static criterion-keyed checklist,
+unfiltered by page - `00 §7` cut line 2 and `types.ts`'s own
+`PageFeatures`/`ManualCheck.appliesWhen` comment ("roadmap-gated, unused
+in v1") both say context-derivation is cut, confirmed still cut today
+(no slack materialised once the rest of the day's list was accounted
+for). `--criteria <id...>` restricts both the static list AND, when a
+`Report` is supplied, the routed-in per-page needs-review findings and
+probe-blind regions to overlapping criterion ids. Structural design
+choice, not explicit in either doc: the static per-criterion list stays
+GLOBAL (printed once), while only the run-specific findings/blind-regions
+get grouped per page - printing the ~30-40-item generic list identically
+under every page of a real crawl would make the checklist unreadable at
+any real scale, and the criteria list is the same regardless of which
+page you're looking at, unlike the findings.
+
+### D88. Pre-flight baseline run-config check, wired into action.yml
+
+`checkBaselineRunConfig()` (`src/diff/run.ts`) reuses
+`findIncompatibleRunConfig` - refactored to take two `RunInfo`-shaped
+objects instead of two `Report`s, so both `runDiff()`'s existing
+post-scan check and this new pre-scan one share one implementation - and
+defaults omitted candidate fields to `scan/browser.ts`'s own
+`DEFAULT_VIEWPORT`/`DEFAULT_LOCALE`/`DEFAULT_COLOR_SCHEME` exports, so it
+can never silently drift from what a bare `scan()` call actually
+resolves to. Exposed as `baseline check-run-config <baseline> --mode
+<mode> [--viewport ...] [--locale ...] [--color-scheme ...]
+[--bypass-csp]`, throwing the same exit 6 `diff()` itself would throw
+post-scan, with the exact `baseline regenerate` command to run.
+
+Wired into `action.yml` in the same place as the existing baseline-exists
+check, right before the (slow) scan step. Only checks `mode` for real -
+the one dimension this Action exposes as an input; viewport/locale/
+colour-scheme/CSP compare against this project's own scan defaults on
+both sides, since the Action has no inputs for them. A `--config` file
+overriding one of those defaults is invisible to this pre-check by
+construction - documented as a known, accepted gap in the step's own
+comment, not silently assumed away: the real `diff` step downstream
+still catches it correctly, this is a fast path, not the source of
+truth. Verified for real: re-ran both demo PRs after merging this in:
+the new "Check the baseline's run configuration matches" step executed
+(not skipped), printed "Run configuration matches the baseline.", and
+both PRs' overall pass/fail outcome was unchanged from before this step
+existed.
+
+### D89. Three error paths: one uncaught, one silent pass, one long-known misclassification finally fixed
+
+Went through the six named scenarios one at a time rather than assuming
+the exit-code table was already true of the code:
+
+- **Malformed baseline, corrupt config**: already correct (`readReport`/
+  `config/load.ts` from earlier days) - verified, not re-implemented.
+  While verifying this one, found a real gap one level deeper (D90).
+- **Browser launch failure**: `chromium.launch()` was completely
+  uncaught in `scan/browser.ts` - a raw Playwright error would still
+  exit 3 via the CLI's generic catch-all, but as an unrelated exception,
+  not a diagnosed tool error. Now `A11yRatchetError(exit 3)` naming the
+  fix (`npx playwright install chromium`).
+- **Unreachable base URL**: a scan where every page failed to load
+  returned a `Report` with 0 scanned pages and exited 0 - "0 violations",
+  technically true, actually meaning the scan did nothing at all, which
+  `index.ts`'s own header comment already names as "the worst possible
+  failure mode for this particular tool." New `unreachableBaseUrlError()`
+  makes the plain `scan` command exit 3 in that specific case - scoped to
+  the CLI command, not `scan()` itself, so `diff`/`baseline check` keep
+  the graceful all-pages-errored `Report` a site that went down between
+  runs legitimately needs (that's the "page-error" signal those commands
+  exist to surface, not a tool error to crash on). Verified against a
+  real unreachable port end to end (`http://127.0.0.1:1/...`, exit 3,
+  clear message).
+- **Network timeout**: not independently re-verified today - a real
+  timeout takes Playwright's full default duration to trigger (a hanging
+  server didn't fail within 40s in a manual check, so a full ~30s+ wait
+  was needed and wasn't run to completion under today's time budget), and
+  the classification regex (`/timeout/i` against the caught error's
+  message) is unchanged code, already fixed and verified on an earlier
+  day per this file's own record. Flagged here rather than silently
+  assumed identical to the other five - the mechanism is very likely
+  still correct, but "very likely" is a different claim than "verified
+  today," and today's discipline was verify each one.
+- **CSP block without `--bypass-csp`**: D65 already found this produces
+  `PageErrorKind: 'navigation-failed'` (wrong - the page loaded fine,
+  axe's injected `<script>` tag was blocked) but never fixed it.
+  `injectAxeIntoAllFrames()` silently swallowed EVERY frame's injection
+  failure, main frame included, as "presumably cross-origin" - true for
+  sub-frames, never true for the main frame (same-origin with the page
+  by definition), so a main-frame injection failure has no benign
+  explanation. New `AxeInjectionFailedError`, thrown only for the main
+  frame, classified as `axe-injection-failed` with a message pointing at
+  `--bypass-csp`. New fixture (`test/fixtures/pages/11-strict-csp`) with
+  a REAL `Content-Security-Policy: script-src 'self'` header, not a
+  synthetic error - verified the fix against an actual browser-enforced
+  CSP block, and that `--bypass-csp` clears it.
+
+### D90. `readReport()` didn't validate structure, only `schemaVersion`; npm packaging fully verified
+
+Found while verifying "malformed baseline" thoroughly rather than
+stopping at the two obvious cases (not-JSON, wrong `schemaVersion`):
+`{"schemaVersion": "1.3", "findings": []}` passed `readReport()`'s check
+cleanly (right version, valid JSON) and then failed four calls deep
+inside `diff()` with `Cannot read properties of undefined (reading
+'axeCoreVersion')` - exit code already correct (3, via the CLI's
+catch-all for any thrown `Error`), but the message named nothing a
+person could act on. `Report` has no runtime (Zod) schema the way
+`Config` does, and building one today is bigger than this task's
+"malformed baseline" line item asked for - added a shallow gate instead:
+every top-level `Report` field must be present, or `readReport()` throws
+naming exactly which ones are missing and says "regenerate, don't hand-
+repair." Not full structural validation (a field present with the wrong
+TYPE still slips through), but it catches the common real case - a
+truncated or partially-hand-edited file - which is what actually
+produced the raw `TypeError` this was chasing. `report/json.ts` had no
+dedicated test file before today despite being the baseline read/write
+path `01 §11` calls load-bearing; added one.
+
+**npm packaging**: `files`/`bin`/`engines`/`exports` already correct
+from an earlier day - `npm pack --dry-run` shows exactly `dist/`,
+`README.md`, `LICENSE`, `package.json`, nothing else; the built CLI's
+shebang and executable bit survive `tsup`. Verified for real, not by
+reading the config: `npm pack`, installed the resulting tarball into a
+freshly created directory OUTSIDE the repo (`npm install
+./a11y-ratchet-0.1.0.tgz`), then ran the README's exact Quickstart three
+commands via `npx a11y-ratchet` from there - all three worked, matching
+the task's warning that it "has already shipped one flag that never
+existed" (the `--depth`/`--max-depth` bug fixed Day 12).
+
+Doing this surfaced a SEPARATE, larger instance of that same class of
+bug: the README used bare `` `ratchet <command>` `` as shorthand in
+seven places (the baseline workflow table, the config section, the
+manual-mode section, the Action's exit-6 paragraph) - `ratchet` was
+never a registered `bin` alias (only `a11y-ratchet` is), so every one of
+those copy-pasted commands would have failed with "command not found".
+Replaced every instance with the real bin name. Also replaced the
+Day-13 manual-mode `TODO` with real generated output
+(`a11y-ratchet manual --criteria 1.1.1 2.4.11`) now that the command
+exists for real (D87), and corrected the README's top banner, which
+still claimed "Day 1... not yet functional" and "the manual checklist is
+the one remaining stub" - neither true as of today; no `NotImplemented`
+stub remains anywhere in `src/`.
