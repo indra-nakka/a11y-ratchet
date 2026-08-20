@@ -1,0 +1,2 @@
+http://127.0.0.1:4173/crawl-site/index.html
+http://127.0.0.1:4173/crawl-site/does-not-exist.html

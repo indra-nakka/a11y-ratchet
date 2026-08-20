@@ -1,0 +1,3 @@
+# Explicit URL list for the --url-list seed test.
+http://127.0.0.1:4173/crawl-site/page-b.html
+http://127.0.0.1:4173/crawl-site/page-e.html

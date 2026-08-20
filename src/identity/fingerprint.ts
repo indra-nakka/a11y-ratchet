@@ -246,6 +246,20 @@ export function urlTemplateFor(url: string, options: UrlTemplateOptions = {}): s
   return pathStr + hashStr + templateQuery(parsed.searchParams);
 }
 
+/**
+ * Trailing-slash and query canonicalisation only - deliberately NOT the
+ * numeric/UUID/hash/date-segment templating `urlTemplateFor` does. The
+ * crawler's visited-set needs `/product/1` and `/product/2` to stay distinct
+ * pages to fetch; only the fingerprint's cross-page grouping wants them
+ * conflated. Shares `templateQuery` so tracking-param stripping and sort
+ * order stay identical between the two.
+ */
+export function canonicaliseUrlForCrawling(url: string): string {
+  const parsed = new URL(url);
+  const pathStr = parsed.pathname.length > 1 ? parsed.pathname.replace(/\/+$/, '') || '/' : parsed.pathname;
+  return parsed.origin + pathStr + templateQuery(parsed.searchParams);
+}
+
 /* -------------------------------------------------------------------------- */
 /* §3.5 — The hash, and collisions                                            */
 /* -------------------------------------------------------------------------- */

@@ -1,16 +1,17 @@
 /**
- * Orchestrates one scan: browser lifecycle → mode policy → settle → axe →
- * normalise → `Report` (`01 §4`).
+ * Orchestrates a scan: frontier/sitemap/url-list seeding → worker pool →
+ * mode policy → settle → axe → normalise → `Report` (`01 §4`).
  *
- * No frontier yet (`crawl/` is Day 7) — `options.seed.url` is scanned as the
- * single page in the run, at depth 0. `sitemap`/`urlList` seeds and the
- * focus-path probe (Day 9) both throw `NotImplementedError` rather than
- * silently doing nothing.
+ * Sitemap and URL-list seeds hand the frontier an exact page set at depth 0
+ * and are never followed for further links — that exactness is the whole
+ * point of using them (`00 §4`). Only a `url` seed runs BFS: each page's
+ * same-origin links are discovered and enqueued at depth+1.
  */
 
+import { readFile } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
-import type { Page } from 'playwright';
+import type { BrowserContext, Page } from 'playwright';
 
 import { injectAxeIntoAllFrames, runAxe } from './axe.js';
 import {
@@ -26,6 +27,9 @@ import {
 import { installThirdPartyBlock, resolveModePolicy } from './modes.js';
 import { normaliseRawFindings } from './normalise.js';
 import { settle } from './settle.js';
+import { Frontier, resolveSameOriginLinks, type FrontierEntry } from '../crawl/frontier.js';
+import { fetchRobotsRules, type RobotsRules } from '../crawl/filters.js';
+import { fetchSitemapUrls } from '../crawl/sitemap.js';
 import { urlTemplateFor } from '../identity/fingerprint.js';
 import { A11yRatchetError, NotImplementedError } from '../errors.js';
 import { AXE_CORE_VERSION, TOOL_NAME, TOOL_VERSION } from '../meta.js';
@@ -34,6 +38,7 @@ import type {
   IdentityTier,
   Impact,
   Level,
+  PageErrorKind,
   PageResult,
   Report,
   RunInfo,
@@ -54,18 +59,14 @@ const DEFAULT_SETTLE: SettleSettings = {
   imageDecodeCapMs: 1500,
 };
 
-const WORKER_ID = 0;
+/** `01 §2`: politeness delay between requests to one origin. */
+const DEFAULT_DELAY_MS = 250;
 
 export async function runScan(options: ScanOptions): Promise<Report> {
-  if (options.seed.sitemap ?? options.seed.urlList) {
-    throw new NotImplementedError('scan() with a sitemap or url-list seed (crawling)', 'Day 7');
-  }
-  const seedUrl = options.seed.url;
-  if (!seedUrl) {
-    throw new A11yRatchetError(
-      'scan() requires seed.url — sitemap and url-list seeds are not implemented yet (Day 7)',
-      3,
-    );
+  const { seed } = options;
+  const seedKindCount = [seed.url, seed.sitemap, seed.urlList].filter((value) => value !== undefined).length;
+  if (seedKindCount !== 1) {
+    throw new A11yRatchetError('scan() requires exactly one of seed.url, seed.sitemap, seed.urlList', 3);
   }
   if (options.probes && options.probes.length > 0) {
     throw new NotImplementedError('interaction probes', 'Day 9');
@@ -80,6 +81,54 @@ export async function runScan(options: ScanOptions): Promise<Report> {
   const settleSettings: SettleSettings = { ...DEFAULT_SETTLE, ...options.settle };
   const includeBestPractice = options.includeBestPractice ?? false;
 
+  const crawl = options.crawl ?? {};
+  const respectRobots = crawl.respectRobots ?? true;
+  const delayMs = crawl.delayMs ?? DEFAULT_DELAY_MS;
+
+  // Seeding: sitemap/urlList give an exact page set at depth 0, never
+  // followed further. Only a `url` seed discovers links as it goes (BFS).
+  let seedEntries: FrontierEntry[];
+  let discoverLinks: boolean;
+  let baseUrl: string;
+  if (seed.url) {
+    seedEntries = [{ url: seed.url, depth: 0 }];
+    discoverLinks = true;
+    baseUrl = seed.url;
+  } else if (seed.sitemap) {
+    const urls = await fetchSitemapUrls(seed.sitemap);
+    if (urls.length === 0) {
+      throw new A11yRatchetError(`Sitemap ${seed.sitemap} named no page URLs`, 3);
+    }
+    seedEntries = urls.map((url) => ({ url, depth: 0 }));
+    discoverLinks = false;
+    baseUrl = urls[0]!;
+  } else {
+    const urls = await readUrlListFile(seed.urlList!);
+    if (urls.length === 0) {
+      throw new A11yRatchetError(`URL list ${seed.urlList} named no URLs`, 3);
+    }
+    seedEntries = urls.map((url) => ({ url, depth: 0 }));
+    discoverLinks = false;
+    baseUrl = urls[0]!;
+  }
+
+  const baseOrigin = new URL(baseUrl).origin;
+  let robots: RobotsRules | undefined;
+  if (respectRobots) {
+    robots = await fetchRobotsRules(baseOrigin);
+  }
+
+  const frontier = new Frontier({
+    ...(crawl.include ? { include: crawl.include } : {}),
+    ...(crawl.exclude ? { exclude: crawl.exclude } : {}),
+    ...(crawl.maxDepth !== undefined ? { maxDepth: crawl.maxDepth } : {}),
+    ...(crawl.maxPages !== undefined ? { maxPages: crawl.maxPages } : {}),
+    ...(robots ? { robots } : {}),
+  });
+  for (const entry of seedEntries) {
+    frontier.tryEnqueue(entry);
+  }
+
   const pool = await BrowserPool.launch({
     viewport,
     locale,
@@ -88,27 +137,60 @@ export async function runScan(options: ScanOptions): Promise<Report> {
     ...(options.storageState !== undefined ? { storageState: options.storageState } : {}),
   });
 
+  const pages: PageResult[] = [];
+  const findings: Finding[] = [];
+  const blockedOrigins = new Set<string>();
+
   try {
     const modePolicy = resolveModePolicy(mode);
-    const context = await pool.acquire(WORKER_ID);
+    const hostLimiter = new HostRateLimiter(delayMs);
+    const workerContexts = new Map<number, BrowserContext>();
 
-    let blockedOrigins: string[] = [];
-    if (modePolicy.blockThirdParty) {
-      const block = await installThirdPartyBlock(context, new URL(seedUrl).origin);
-      blockedOrigins = [...block.blockedOrigins];
+    async function processEntry(entry: FrontierEntry, workerId: number): Promise<void> {
+      await hostLimiter.wait(new URL(entry.url).host);
+
+      const context = await pool.acquire(workerId);
+      if (workerContexts.get(workerId) !== context) {
+        workerContexts.set(workerId, context);
+        if (modePolicy.blockThirdParty) {
+          const block = await installThirdPartyBlock(context, baseOrigin);
+          for (const origin of block.blockedOrigins) blockedOrigins.add(origin);
+        }
+      }
+
+      const page = await context.newPage();
+      const result = await scanOnePage(page, entry.url, entry.depth, settleSettings, includeBestPractice);
+
+      if (discoverLinks && !result.page.error && !frontier.atPageCap) {
+        try {
+          const hrefs = await page.$$eval('a[href]', (anchors) =>
+            anchors.map((anchor) => anchor.getAttribute('href') ?? ''),
+          );
+          const links = resolveSameOriginLinks(page.url(), hrefs);
+          for (const link of links) {
+            frontier.tryEnqueue({ url: link, depth: entry.depth + 1 });
+          }
+        } catch {
+          // Link discovery is best-effort on top of an already-successful
+          // scan; a page whose DOM changed under us mid-extraction still
+          // keeps its findings.
+        }
+      }
+
+      pool.release(workerId);
+      await page.close();
+      pages.push(result.page);
+      findings.push(...result.findings);
     }
 
-    const page = await context.newPage();
-    const pageResult = await scanOnePage(page, seedUrl, settleSettings, includeBestPractice);
-    pool.release(WORKER_ID);
-    await page.close();
+    await runWorkerPool(concurrency, frontier, processEntry);
 
     const run: RunInfo = {
       id: randomUUID(),
       startedAt: runStartedAt.toISOString(),
       durationMs: Date.now() - runStartedAt.getTime(),
       configHash: hashScanConfig({ viewport, locale, colorScheme, mode, concurrency, settleSettings }),
-      baseUrl: seedUrl,
+      baseUrl,
       mode,
       viewport,
       deviceScaleFactor: FIXED_DEVICE_SCALE_FACTOR,
@@ -116,7 +198,7 @@ export async function runScan(options: ScanOptions): Promise<Report> {
       timezoneId: FIXED_TIMEZONE_ID,
       colorScheme,
       reducedMotion: FIXED_REDUCED_MOTION,
-      blockedOrigins,
+      blockedOrigins: [...blockedOrigins],
       concurrency,
       settle: settleSettings,
       // Day 9: focus-path probe ids, once probes exist to enable.
@@ -136,20 +218,101 @@ export async function runScan(options: ScanOptions): Promise<Report> {
       schemaVersion: '1.1',
       tool,
       run,
-      pages: [pageResult.page],
-      findings: pageResult.findings,
+      pages,
+      findings,
       // Day 4/6 (identity/group.ts) builds the real grouped index.
       groups: {},
-      summary: buildSummary(pageResult.findings, [pageResult.page]),
+      summary: buildSummary(findings, pages),
     };
   } finally {
     await pool.close();
   }
 }
 
+/**
+ * Runs `task` over every entry the frontier admits, across `concurrency`
+ * worker "slots". `workerId` is the slot index (stable across a worker's
+ * whole run, so `BrowserPool`'s per-slot context recycling lines up with
+ * it) - not a page count or a queue position.
+ *
+ * BFS mode can leave the queue transiently empty while another in-flight
+ * page is about to discover more links, so an idle worker polls rather than
+ * exiting outright, and only stops once nothing is in flight anywhere.
+ * Plain, not clever, per Day 7's scope.
+ */
+async function runWorkerPool(
+  concurrency: number,
+  frontier: Frontier,
+  task: (entry: FrontierEntry, workerId: number) => Promise<void>,
+): Promise<void> {
+  let inFlight = 0;
+
+  async function worker(workerId: number): Promise<void> {
+    for (;;) {
+      const entry = frontier.dequeue();
+      if (entry) {
+        inFlight += 1;
+        try {
+          await task(entry, workerId);
+        } finally {
+          inFlight -= 1;
+        }
+        continue;
+      }
+      if (inFlight === 0) return;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  }
+
+  await Promise.all(Array.from({ length: concurrency }, (_unused, workerId) => worker(workerId)));
+}
+
+/** Serialises requests to the same host `delayMs` apart; different hosts never wait on each other. */
+class HostRateLimiter {
+  private readonly nextAvailableAt = new Map<string, number>();
+
+  constructor(private readonly delayMs: number) {}
+
+  async wait(host: string): Promise<void> {
+    const now = Date.now();
+    const earliest = this.nextAvailableAt.get(host) ?? 0;
+    const start = Math.max(now, earliest);
+    this.nextAvailableAt.set(host, start + this.delayMs);
+    const waitMs = start - now;
+    if (waitMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+  }
+}
+
+/** Newline-delimited file of URLs; blank lines and `#`-comments are skipped. */
+async function readUrlListFile(path: string): Promise<string[]> {
+  let text: string;
+  try {
+    text = await readFile(path, 'utf8');
+  } catch (error) {
+    throw new A11yRatchetError(
+      `Could not read URL list ${path}: ${error instanceof Error ? error.message : String(error)}`,
+      3,
+    );
+  }
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith('#'));
+}
+
+const TIMEOUT_MESSAGE = /timeout/i;
+
+function classifyNavigationError(error: unknown): PageErrorKind {
+  const message = error instanceof Error ? error.message : String(error);
+  return TIMEOUT_MESSAGE.test(message) ? 'navigation-timeout' : 'navigation-failed';
+}
+
 async function scanOnePage(
   page: Page,
   url: string,
+  depth: number,
   settleSettings: SettleSettings,
   includeBestPractice: boolean,
 ): Promise<{ page: PageResult; findings: Finding[] }> {
@@ -166,7 +329,7 @@ async function scanOnePage(
     const pageResult: PageResult = {
       url,
       urlTemplate,
-      depth: 0,
+      depth,
       ...(settleResult.httpStatus !== undefined ? { httpStatus: settleResult.httpStatus } : {}),
       ...(title ? { title } : {}),
       startedAt: startedAt.toISOString(),
@@ -177,17 +340,19 @@ async function scanOnePage(
     };
     return { page: pageResult, findings };
   } catch (error) {
+    // A page that failed to load is recorded as an error, not silently
+    // skipped or reported as a zero-violation page (`CLAUDE.md` invariant 2).
     const pageResult: PageResult = {
       url,
       urlTemplate,
-      depth: 0,
+      depth,
       startedAt: startedAt.toISOString(),
       durationMs: Date.now() - startedAt.getTime(),
       probesRun: false,
       probeBlindRegions: [],
       counts: { violation: 0, needsReview: 0, bestPractice: 0, suppressed: 0 },
       error: {
-        kind: 'navigation-failed',
+        kind: classifyNavigationError(error),
         message: error instanceof Error ? error.message : String(error),
       },
     };

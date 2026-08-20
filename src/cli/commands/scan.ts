@@ -2,6 +2,7 @@ import { Command } from 'commander';
 
 import { scan } from '../../index.js';
 import { run } from '../runtime.js';
+import type { CrawlSeed, ScanMode } from '../../types.js';
 
 /**
  * `scan` — crawl a site and produce a report.
@@ -59,9 +60,42 @@ Notes:
 `,
     )
 
-    .action((url: string | undefined) =>
+    .action((url: string | undefined, options: RawScanCliOptions) =>
       run(async () => {
-        await scan({ seed: { ...(url ? { url } : {}) } });
+        const seed: CrawlSeed = {
+          ...(url ? { url } : {}),
+          ...(options.sitemap ? { sitemap: options.sitemap } : {}),
+          ...(options.urlList ? { urlList: options.urlList } : {}),
+        };
+        await scan({
+          seed,
+          crawl: {
+            ...(options.include ? { include: options.include } : {}),
+            ...(options.exclude ? { exclude: options.exclude } : {}),
+            maxDepth: Number(options.maxDepth),
+            maxPages: Number(options.maxPages),
+            respectRobots: options.robots,
+            delayMs: Number(options.delay),
+          },
+          mode: options.mode as ScanMode,
+          concurrency: Number(options.concurrency),
+          ...(options.storageState ? { storageState: options.storageState } : {}),
+        });
       }),
     );
+}
+
+/** Shape of `.opts()` for the flags this command currently wires through to `ScanOptions`. */
+interface RawScanCliOptions {
+  sitemap?: string;
+  urlList?: string;
+  include?: string[];
+  exclude?: string[];
+  maxDepth: string;
+  maxPages: string;
+  robots: boolean;
+  delay: string;
+  concurrency: string;
+  mode: string;
+  storageState?: string;
 }

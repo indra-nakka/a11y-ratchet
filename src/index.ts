@@ -58,9 +58,9 @@ export {
  * omitted. Suppressed findings stay in `Report.findings`, tagged with
  * `suppressed`, never dropped or moved to a second array.
  *
- * Days 2, 7 and 9. As of Day 2: a single `seed.url` page, no crawl frontier
- * (`seed.sitemap`/`seed.urlList` throw) and no interaction probes yet —
- * `PageResult.probesRun` is `false` until Day 9.
+ * Days 2, 7 and 9. As of Day 7: `seed.url` (BFS), `seed.sitemap` and
+ * `seed.urlList` are all implemented. Interaction probes are still Day 9 —
+ * `PageResult.probesRun` is `false` and a non-empty `options.probes` throws.
  */
 export function scan(options: ScanOptions): Promise<Report> {
   return runScan(options);

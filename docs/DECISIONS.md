@@ -961,3 +961,172 @@ stable, non-generated `identity.value` on its own. Worth considering for a
 future revision of the weight table; not changed today, since that would be
 a spec change made under end-of-day pressure rather than considered
 design.
+
+---
+
+## 2026-08-20 — Day 7
+
+### D50. Collision-group multiset semantics when size changes — verified, not assumed
+
+Day 7 asked this before any crawler code: does a 194-member collision group
+shrinking to 190 yield 190 persisting + 4 fixed, or does it get treated as
+one atomic "persisting group"? Written as two direct tests
+(`test/diff/collision-multiset.test.ts`) against the real
+`identity/fingerprint.ts` + `diff/match.ts` + `diff/classify.ts` stack,
+rather than reasoned through and assumed correct.
+
+**Confirmed: 194 → 190 (4 removed from scattered positions, not just the
+tail) yields exactly 190 `persisting` + 4 `fixed`, never a false `moved`,
+with every base finding accounted for.** No new code was needed — this
+falls directly out of D45's architecture: pass 1 matches whatever ordinals
+happen to still align exactly (only the prefix before the first removal, in
+practice — everything after any removal point shifts, per D43), pass 2's
+fuzzy pass recovers the rest (every remaining member ties at ~0.80+ on
+name+context+text alone, comfortably above 0.65), and `classify.ts`
+compares UNSUFFIXED fingerprints, so every recovered pair reads as
+`persisting` rather than `moved` despite arriving via pass 2. Classification
+is per-finding throughout the pipeline; nothing ever treats a collision
+group as one unit.
+
+**The within-group limitation, made concrete and documented, not left
+implicit:** within a family where every member ties on every fuzzy signal,
+pass 1 exact-matches only the members before the first removal point (3 of
+10 in the smaller test case); everything after is recovered by pass 2's
+greedy assignment, which pairs base and head members in whatever order
+candidates happen to be iterated — NOT by which specific original element a
+survivor "really" is. The aggregate count (190 persisting, 4 fixed) is
+correct and is the only claim this system makes. **"Citation instance #47
+specifically persisted" is not a claim a 194-member uniform family supports
+— only "190 of these 194 persisted, in aggregate" is.** Worth stating
+explicitly in any future report/CLI text that surfaces per-finding detail
+within a large group: individual identity within an indistinguishable
+family is not tracked, by design, not by oversight.
+
+### D51. The crawler: sitemap/url-list as exact page sets, BFS as the plain fallback
+
+Built `crawl/frontier.ts`, `crawl/sitemap.ts`, `crawl/filters.ts`, and wired
+all three into `scan/run.ts` as a real worker pool (default concurrency 3,
+`BrowserPool`'s existing recycle-every-25-pages reused unchanged) with a
+per-host rate limiter (default 250ms, plain `Map<host, nextAvailableAt>`,
+no cleverness). `seed.sitemap` and `seed.urlList` populate the frontier
+with an exact depth-0 page set and are **never followed for further
+links** — that is the whole reason to prefer them over BFS (`00 §4`), and
+letting a sitemap seed also crawl forward would quietly reintroduce the
+"guess the page set" problem it exists to avoid. Only `seed.url` runs BFS,
+discovering same-origin `<a href>` links after each page settles and
+enqueueing them at `depth + 1`.
+
+**URL normalisation for the visited-set is a deliberate subset of `02 §5`'s
+templating, not a reuse of the whole thing.** Exported
+`canonicaliseUrlForCrawling()` from `identity/fingerprint.ts`, sharing only
+the trailing-slash and query-canonicalisation logic (`templateQuery`) with
+`urlTemplateFor()`. It deliberately skips the numeric/UUID/hash/date-segment
+templating: the fingerprint *wants* `/product/1` and `/product/2` to look
+identical (that is what makes cross-page grouping work), but the frontier's
+dedup must not — collapsing them would mean the crawler silently visits
+only one of two genuinely different pages. Two functions, not one made
+configurable, because the two callers want opposite answers to the same
+question ("are these the same page?") and a boolean flag threading that
+distinction through `urlTemplateFor()` would obscure exactly the design
+tension worth keeping visible.
+
+**Worker-pool coordination is a plain poll loop, not a priority queue or
+adaptive strategy** (Day 7's explicit instruction: no clever exploration
+heuristics). Each of `concurrency` workers dequeues, and if the queue is
+momentarily empty but another worker is still mid-page (and might discover
+more links), it polls every 10ms rather than exiting — exits only once
+nothing is in flight anywhere. Simple and correct; not fast in the
+worst case, but the fixture and real-site runs below show it does not need
+to be.
+
+**Fixture surprise, corrected in the fixture, not the code:** the original
+`test/fixtures/pages/crawl-site/page-a.html` linked back to the index via
+`<a href="./index.html">`, intending to exercise "revisit, already in the
+visited set." It does not — `/crawl-site/` (the seed, a directory URL) and
+`/crawl-site/index.html` (the explicit filename) are different URLs, and
+`canonicaliseUrlForCrawling()` correctly treats them as different, because a
+generic crawler cannot assume a site's directory index is named
+`index.html` without site-specific knowledge it does not have. This is the
+technically correct, conservative behaviour — the same non-assumption
+`urlTemplateFor()` already makes. Fixed by changing the fixture's link to
+`./` (the actual same URL as the seed) rather than loosening the frontier's
+notion of "same page."
+
+**`--url-list` was kept, not renamed to `--urls`.** The task described the
+flag by its purpose ("`--urls <file>` for explicit lists"); the CLI
+already had `--url-list <path>` from Day 1, functionally identical.
+Renaming an existing, working, self-describing flag to match incidental
+wording in a task description would be change for its own sake.
+
+**CLI wiring stayed scoped to the crawler itself, not the whole D21 gap.**
+`cli/commands/scan.ts` now threads seed selection (`url`/`--sitemap`/
+`--url-list`), `--include`/`--exclude`/`--max-depth`/`--max-pages`/
+`--no-robots`/`--delay`, `--concurrency`, `--mode` and `--storage-state`
+into `ScanOptions` — everything today's scope touches. `--out`, `--html`,
+`--ungrouped`, `--fail-on`, `--quiet`, `--probes`/`--no-probes`,
+`--viewport`, `--locale`, `--color-scheme`, `--settle-strategy` and
+`--settle-quiet-ms` remain unwired: they belong to the report renderer
+(Days 10-11), the scan threshold gate (Day 13) and interaction probes
+(Day 9) respectively, none of which are today's scope. Verified via the
+built CLI directly (`node dist/cli/index.js scan --sitemap
+<missing-path>` surfaces that exact path in its error, proving the flag
+value reaches the library) plus a direct run of the built `dist/index.js`
+`scan()` against the fixture site for the seed-mode assertions themselves.
+
+**`PageError.kind` now distinguishes `navigation-timeout` from
+`navigation-failed`** (checking the caught error's message against
+`/timeout/i`) rather than always reporting `navigation-failed` regardless
+of cause. Verified against a real connection-refused target
+(`http://127.0.0.1:1/...`), which correctly reports `navigation-failed`
+with zero-count buckets and the page recorded in `summary.pages.errored`,
+never silently dropped and never read as a zero-violation page.
+
+**Test-infrastructure fix, not a Day 7 feature, but required to land Day
+7's tests without flakiness:** `vitest.config.ts` previously claimed
+"threads are fine; the server module refcounts" for
+`test/fixtures/server.ts`'s fixed-port static server. That was wrong —
+Vitest gives each test *file* its own isolated module registry even
+inside a shared worker thread, so `server`/`refCount` are per-file, not
+process-wide, and two files' `start()` calls race for the same OS-level
+port if Vitest schedules them concurrently. With only two server-dependent
+files (`integration.test.ts`, `smoke/server.test.ts`) this apparently
+never collided in practice; adding a third (`test/crawl/crawler.test.ts`)
+made the race fire on nearly every `npm test` run (`EADDRINUSE`, a
+different file losing each time). Fixed at the root cause: `test.
+fileParallelism: false` in `vitest.config.ts`, which serialises test-file
+execution so no two files ever hold the port at once. 184/184 tests pass
+repeatably after the fix (confirmed across three consecutive runs).
+
+### D52. Real-site crawl verification — 30 pages, both items from Day 7's ask
+
+Both of Day 7's "verify and report" items were run against a real site
+(`https://books.toscrape.com/`, a site built for scraping/crawling
+practice — no `robots.txt` present, so `NO_ROBOTS_RULES` fail-open applies
+honestly, and it is exactly the kind of automated-friendly target this
+check should hit rather than a production site that did not opt in),
+30 pages, default settings (`concurrency: 3`, `delayMs: 250`,
+`mode: 'ci'`), via the **built** `dist/index.js` (not source imports) so
+the numbers reflect what actually ships.
+
+**1. Wall-clock and per-page settle time.** 30 pages in 25.8s wall-clock
+(`run.durationMs` and script-measured wall-clock agreed to within 100ms).
+Per-page settle time (`PageResult.durationMs`, the full `settle()` call —
+navigation + fonts + rAF×2 + image-decode + mutation-quiet): min 1053ms,
+median 1341ms, mean 1516ms, max 4870ms (one outlier page; the rest cluster
+tightly between 1.05s and 1.9s). **`01 §5`'s replacement of
+`networkidle` holds up in practice**: no page hung waiting on the 2s
+mutation-quiet hard cap or the 1.5s image-decode cap — the tight
+clustering around 1.3s says the default 150ms quiet period is doing the
+real work, not the caps. This is one real site, not a general performance
+guarantee, but it is the first real number this project has for "01 §5
+wasn't just faster in theory."
+
+**2. `groupKey` collapse at 30-page scale, confirmed — extends Day 6's
+10-page check.** Several real defects each collapsed into exactly ONE
+`groupKey` spanning all 30 crawled pages: `link-in-text-block` (shared nav
+styling), four distinct `color-contrast` groups, and two `target-size`
+groups — each one `groupKey`, 30 pages, not 30 separate groups. Of 4,899
+total findings and 521 distinct `groupKey`s, the site-wide shared-chrome
+defects are exactly the ones `01 §8`'s grouped report view and the Day 14
+audit estimate depend on collapsing — confirmed, not just plausible from
+the 10-page test.
