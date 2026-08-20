@@ -57,19 +57,21 @@ export interface RawFinding {
   /** axe's cross-tree target: frame-crossing selectors, possibly a shadow-DOM chain at the end. */
   target: Array<string | string[]>;
   failureSummary?: string;
+  /** Raw accessible name — `identity/fingerprint.ts` normalises it. */
   accessibleName?: string;
+  /** Raw `element.id` — `identity/fingerprint.ts` runs the generated-id filter, not this file. */
   authoredId?: string;
   testHookValue?: string;
-  /** Role of the nearest landmark ancestor, or `'none'`. */
+  /** Role of the nearest landmark ancestor, or `'none'` (`02 §3.4`). */
   landmarkRole: string;
-  /** Normalised-later text of the nearest preceding heading, or `'none'`. */
+  /** Raw text of the nearest preceding heading, or `'none'` — normalised later. */
   headingContext: string;
   domDepth: number;
   rawTextContent: string;
-  /** Lower-cased tag name — Tier 4/5 fallback path material (`02 §3.1`). */
-  tagName: string;
-  /** Index among same-tag siblings under the immediate parent (`02 §3.1`, Tier 5). */
-  siblingIndex: number;
+  /** Tier 4 candidate: role-or-tag path from the nearest landmark ancestor to the element (`02 §3.1`). */
+  semanticPath: string;
+  /** Tier 5 candidate: tag[same-tag-sibling-index] path from the nearest stable ancestor (`02 §3.1`). */
+  structuralPath: string;
 }
 
 /**
@@ -159,10 +161,48 @@ async function collectRawFindings(args: {
     'region',
     'search',
   ]);
+  // Common implicit roles beyond landmarks, for Tier 4's semantic path
+  // (02 §3.1). Not the full HTML-AAM algorithm - a pragmatic subset covering
+  // what real pages actually use. `a` is handled separately (link only with
+  // an href) since its role depends on an attribute, not just its tag.
+  const IMPLICIT_ROLES: Record<string, string> = {
+    button: 'button',
+    ul: 'list',
+    ol: 'list',
+    li: 'listitem',
+    table: 'table',
+    tr: 'row',
+    td: 'cell',
+    th: 'columnheader',
+    form: 'form',
+    h1: 'heading',
+    h2: 'heading',
+    h3: 'heading',
+    h4: 'heading',
+    h5: 'heading',
+    h6: 'heading',
+    img: 'img',
+    select: 'listbox',
+    textarea: 'textbox',
+  };
   // header/footer are only banner/contentinfo at the top level — nested
   // inside a sectioning element they have no implicit landmark role.
   const SECTIONING_ANCESTOR_SELECTOR = 'article, aside, main, nav, section';
   const HEADING_SELECTOR = 'h1, h2, h3, h4, h5, h6, [role="heading"]';
+
+  // Crosses shadow-root host boundaries (02 §3.1: "identity path crosses
+  // host boundaries"). el.parentElement is null at a shadow root's top, but
+  // the tree logically continues at the host. Used by every ancestor walk
+  // below so landmark/heading/path resolution doesn't stop dead at a
+  // component boundary. Never crosses an IFRAME boundary - that's a
+  // separate document, and Element.parentElement already can't reach it,
+  // which is exactly right: frame path is a separate axis, in frameSelector.
+  function elementParent(el: Element): Element | null {
+    const parent = el.parentElement;
+    if (parent) return parent;
+    const root = el.getRootNode();
+    return root instanceof ShadowRoot ? root.host : null;
+  }
 
   function implicitLandmarkRole(el: Element): string | null {
     const explicitRole = el.getAttribute('role');
@@ -180,20 +220,45 @@ async function collectRawFindings(args: {
     return LANDMARK_TAG_ROLES[tag] ?? null;
   }
 
-  // Best-effort landmark walk — not the full HTML-AAM algorithm. Hardened in Day 4.
-  function nearestLandmarkRole(el: Element): string {
-    let node: Element | null = el.parentElement;
-    while (node) {
-      const role = implicitLandmarkRole(node);
-      if (role) return role;
-      node = node.parentElement;
-    }
-    return 'none';
+  // SVG elements' `.className` is an SVGAnimatedString, not a string
+  // (02 §3.1). This file never reads `.className` anywhere, on purpose -
+  // `getAttribute('class')`/`getAttribute('role')` are used throughout
+  // instead, which behave uniformly across HTML and SVG elements.
+  function roleForElement(el: Element): string {
+    const explicit = el.getAttribute('role');
+    if (explicit) return explicit;
+    const landmark = implicitLandmarkRole(el);
+    if (landmark) return landmark;
+    const tag = el.tagName.toLowerCase();
+    if (tag === 'a' && el.hasAttribute('href')) return 'link';
+    return IMPLICIT_ROLES[tag] ?? tag;
   }
 
-  // Raw text - normalisation (02 §3.3) happens in Node, in normalise.ts.
+  function nearestLandmarkAncestor(el: Element): Element | null {
+    let node = elementParent(el);
+    while (node) {
+      if (implicitLandmarkRole(node)) return node;
+      node = elementParent(node);
+    }
+    return null;
+  }
+
+  // Best-effort landmark walk — not the full HTML-AAM algorithm. Hardened in Day 4.
+  function nearestLandmarkRole(el: Element): string {
+    const landmark = nearestLandmarkAncestor(el);
+    return landmark ? implicitLandmarkRole(landmark)! : 'none';
+  }
+
+  // Raw text - normalisation (02 §3.3) happens in Node, in identity/fingerprint.ts.
+  // Searches only within the element's own shadow root when it's inside one
+  // (or the top document otherwise) - a heading outside the component's
+  // shadow boundary isn't really "context" for content encapsulated inside
+  // it. Not exercised by any current fixture; a defensible scope decision,
+  // not a proven-correct one.
   function nearestPrecedingHeadingText(el: Element): string {
-    const headings = Array.from(document.querySelectorAll(HEADING_SELECTOR));
+    const root = el.getRootNode();
+    const searchRoot = root instanceof ShadowRoot || root instanceof Document ? root : document;
+    const headings = Array.from(searchRoot.querySelectorAll(HEADING_SELECTOR));
     let candidate: Element | null = null;
     for (const heading of headings) {
       const position = heading.compareDocumentPosition(el);
@@ -208,10 +273,10 @@ async function collectRawFindings(args: {
 
   function elementDomDepth(el: Element): number {
     let depth = 0;
-    let node: Element | null = el.parentElement;
+    let node = elementParent(el);
     while (node) {
       depth += 1;
-      node = node.parentElement;
+      node = elementParent(node);
     }
     return depth;
   }
@@ -246,6 +311,52 @@ async function collectRawFindings(args: {
     return index;
   }
 
+  // Tier 4 (02 §3.1): role-or-tag path from the nearest landmark ancestor
+  // down to and including the element, e.g. "navigation > list > listitem >
+  // link". The landmark's own role leads the path so it's self-contained -
+  // no need to cross-reference landmarkRole separately to know which
+  // landmark this is.
+  function buildSemanticPath(el: Element): string {
+    const landmark = nearestLandmarkAncestor(el);
+    if (!landmark) return 'none';
+    const chain: string[] = [];
+    let node: Element | null = el;
+    while (node && node !== landmark) {
+      chain.unshift(roleForElement(node));
+      node = elementParent(node);
+    }
+    return [roleForElement(landmark), ...chain].join(' > ');
+  }
+
+  // "Nearest stable ancestor" (02 §3.1) isn't fully specified in the docs.
+  // Interpreted as: the nearest ancestor with its own id, or a landmark, or
+  // <body> as the final fallback - something that gives the path a fixed
+  // reference point even though the element itself has none.
+  function nearestStableAncestor(el: Element): Element {
+    let node = elementParent(el);
+    while (node) {
+      if (node.id || implicitLandmarkRole(node) || node === document.body) return node;
+      node = elementParent(node);
+    }
+    return document.body;
+  }
+
+  // Tier 5 (02 §3.1): tag[same-tag-sibling-index] path from the nearest
+  // stable ancestor to the element - same-tag index, NOT absolute position,
+  // so an unrelated sibling insertion elsewhere doesn't perturb it. The
+  // anchor's own segment is deliberately excluded: it's a reference point,
+  // not part of the element's own structural description.
+  function buildStructuralPath(el: Element): string {
+    const anchor = nearestStableAncestor(el);
+    const chain: string[] = [];
+    let node: Element | null = el;
+    while (node && node !== anchor) {
+      chain.unshift(`${node.tagName.toLowerCase()}[${sameTagSiblingIndex(node)}]`);
+      node = elementParent(node);
+    }
+    return chain.join(' > ');
+  }
+
   function buildRawFinding(
     rule: InPageRuleResult,
     node: InPageNodeResult,
@@ -277,8 +388,8 @@ async function collectRawFindings(args: {
       headingContext: el ? nearestPrecedingHeadingText(el) : 'none',
       domDepth: el ? elementDomDepth(el) : 0,
       rawTextContent: el?.textContent ?? '',
-      tagName: el ? el.tagName.toLowerCase() : '',
-      siblingIndex: el ? sameTagSiblingIndex(el) : 0,
+      semanticPath: el ? buildSemanticPath(el) : 'none',
+      structuralPath: el ? buildStructuralPath(el) : '',
     };
   }
 
@@ -289,12 +400,30 @@ async function collectRawFindings(args: {
     iframes: true,
   });
 
-  const out: RawFinding[] = [];
+  // Collect (rule, node, bucket) triples first and sort by document
+  // position while live elements are still available - identity/
+  // fingerprint.ts's collision-ordinal assignment needs document order, and
+  // it never sees a live Element to compute that itself.
+  const entries: Array<{ rule: InPageRuleResult; node: InPageNodeResult; bucket: 'violation' | 'needs-review' }> = [];
   for (const rule of results.violations) {
-    for (const node of rule.nodes) out.push(buildRawFinding(rule, node, 'violation'));
+    for (const node of rule.nodes) entries.push({ rule, node, bucket: 'violation' });
   }
   for (const rule of results.incomplete) {
-    for (const node of rule.nodes) out.push(buildRawFinding(rule, node, 'needs-review'));
+    for (const node of rule.nodes) entries.push({ rule, node, bucket: 'needs-review' });
   }
-  return out;
+
+  entries.sort((a, b) => {
+    const elA = a.node.element;
+    const elB = b.node.element;
+    // Elements without a live reference (cross-frame results) sort after
+    // every same-document one; relative order among themselves is left as
+    // axe returned it (stable sort).
+    if (!elA || !elB) return elA ? -1 : elB ? 1 : 0;
+    const position = elA.compareDocumentPosition(elB);
+    if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+    if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+    return 0;
+  });
+
+  return entries.map(({ rule, node, bucket }) => buildRawFinding(rule, node, bucket));
 }

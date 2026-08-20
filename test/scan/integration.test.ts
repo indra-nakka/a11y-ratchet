@@ -131,12 +131,36 @@ describe('scan() against the fixture manifest', () => {
     expect(report.findings.some((finding) => finding.ruleId === 'heading-order')).toBe(false);
   }, 30_000);
 
-  it('leaves fingerprint and groupKey as the documented Day 4 placeholder', async () => {
+  it('computes real, well-formed, distinct fingerprints and group keys (Day 4)', async () => {
     const report = await scan({ seed: { url: pageUrl('03-contrast') } });
     expect(report.findings.length).toBeGreaterThan(0);
     for (const finding of report.findings) {
-      expect(finding.fingerprint).toBe('unset:day-4-fingerprint');
-      expect(finding.groupKey).toBe('unset:day-4-groupkey');
+      expect(finding.fingerprint).toMatch(/^[0-9a-f]{16}(#\d+)?$/);
+      expect(finding.groupKey).toMatch(/^[0-9a-f]{16}$/);
     }
+    // No planted defect on this page shares an element with another - every
+    // fingerprint should be distinct, with no collision ordinal needed.
+    const fingerprints = report.findings.map((finding) => finding.fingerprint);
+    expect(new Set(fingerprints).size).toBe(fingerprints.length);
+    expect(report.findings.every((finding) => finding.identity.ordinal === 0)).toBe(true);
   }, 30_000);
+
+  it('reports the identity tier distribution across the fixture suite', async () => {
+    const tierCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    for (const page of manifest.pages) {
+      const dir = page.path.split('/')[0]!;
+      const report = await scan({ seed: { url: pageUrl(dir) } });
+      for (const finding of report.findings) {
+        tierCounts[finding.identityTier] = (tierCounts[finding.identityTier] ?? 0) + 1;
+      }
+    }
+    const total = Object.values(tierCounts).reduce((sum, n) => sum + n, 0);
+    // Day 4 explicitly asks for this reported, not just asserted.
+    console.log('Identity tier distribution across the fixture suite:', tierCounts, `(${total} findings)`);
+    expect(total).toBeGreaterThan(0);
+    // Every Day 1 fixture defect has an authored id (manifest.test.ts
+    // enforces `selector.startsWith('#')`), so Tier 1 should dominate here -
+    // this suite alone can't demonstrate real-world tier distribution.
+    expect(tierCounts[1]).toBeGreaterThan(0);
+  }, 60_000);
 });

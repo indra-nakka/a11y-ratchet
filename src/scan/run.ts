@@ -26,6 +26,7 @@ import {
 import { installThirdPartyBlock, resolveModePolicy } from './modes.js';
 import { normaliseRawFindings } from './normalise.js';
 import { settle } from './settle.js';
+import { urlTemplateFor } from '../identity/fingerprint.js';
 import { A11yRatchetError, NotImplementedError } from '../errors.js';
 import { AXE_CORE_VERSION, TOOL_NAME, TOOL_VERSION } from '../meta.js';
 import type {
@@ -152,17 +153,18 @@ async function scanOnePage(
   includeBestPractice: boolean,
 ): Promise<{ page: PageResult; findings: Finding[] }> {
   const startedAt = new Date();
+  const urlTemplate = urlTemplateFor(url);
 
   try {
     const settleResult = await settle(page, url, settleSettings);
     await injectAxeIntoAllFrames(page);
     const raw = await runAxe(page, { includeBestPractice });
-    const findings = normaliseRawFindings(raw, { url, urlTemplate: url });
+    const findings = normaliseRawFindings(raw, { url, urlTemplate });
     const title = await page.title();
 
     const pageResult: PageResult = {
       url,
-      urlTemplate: url,
+      urlTemplate,
       depth: 0,
       ...(settleResult.httpStatus !== undefined ? { httpStatus: settleResult.httpStatus } : {}),
       ...(title ? { title } : {}),
@@ -176,7 +178,7 @@ async function scanOnePage(
   } catch (error) {
     const pageResult: PageResult = {
       url,
-      urlTemplate: url,
+      urlTemplate,
       depth: 0,
       startedAt: startedAt.toISOString(),
       durationMs: Date.now() - startedAt.getTime(),

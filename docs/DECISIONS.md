@@ -408,3 +408,141 @@ rather than picking ~40 and leaving some matrix rows pointing at the generic
 fallback. Slightly over the plan's approximate figure; the alternative was
 an arbitrary cut that would have left, e.g., `frame-title-unique` or
 `aria-valid-attr-value` — both genuinely common — without one.
+
+---
+
+## 2026-08-20 — Day 4
+
+### D27. Split: DOM-dependent candidate gathering in `axe.ts`, pure logic in `identity/fingerprint.ts`
+
+`page.evaluate` can't ship a live `Element` back to Node, so any DOM-walking
+(tier 4/5 ancestor paths, shadow-crossing, heading search) has to happen in
+`scan/axe.ts`'s in-page code, same constraint as Day 2 (D19's `RawFinding`).
+`identity/fingerprint.ts` never touches a DOM: `scan/axe.ts` now gathers
+`semanticPath` and `structuralPath` as full, already-built path strings
+(previously Day 2's one/two-segment shortcut), and
+`identity/fingerprint.ts`'s `resolveIdentityTier` just picks a winner among
+already-known candidate values. This is also why generated-id filtering
+lives in `identity/fingerprint.ts` and not `axe.ts`: `authoredId` arrives
+raw and unfiltered, so the filter itself is pure and unit-testable without a
+browser at all - the entire tier/normalisation/hash/collision surface has
+zero Playwright dependency now, which is what let Day 4 be "unit tests
+only" per the plan.
+
+### D28. "Nearest stable ancestor" (Tier 5) interpreted, not found in the docs
+
+`02 §3.1` names tier 5 "tag + same-tag sibling index from nearest stable
+ancestor" without defining "stable". Interpreted as: the nearest ancestor
+with its own `id`, or a landmark role, or `<body>` as the final fallback -
+something that gives the path a fixed reference point even when the target
+element has none of its own. `structuralPath` excludes the anchor's own
+segment (it's a reference point, not part of the element's structural
+description), mirroring how `semanticPath` includes the landmark's role
+specifically because that DOES identify which landmark this is.
+
+Flagged rather than assumed correct: no current fixture exercises tier 5 (D30
+below), so this definition is untested against a real page shape. Worth a
+second look once Day 9's shadow/frame fixtures or a real-site run produce an
+actual tier-5 finding.
+
+### D29. Shadow DOM: ancestor walks cross the boundary, heading search doesn't
+
+`elementParent()` in `scan/axe.ts` crosses a shadow root's host boundary
+(`element.getRootNode() instanceof ShadowRoot ? root.host : null`) - used by
+every ancestor walk (landmark search, tier 4/5 path building, DOM depth), so
+none of them silently stop dead at a component boundary the way plain
+`.parentElement` would.
+
+`nearestPrecedingHeadingText` is scoped differently: it searches only within
+the element's own shadow root (or the top document, outside one), never
+crossing OUT into the host page. A heading outside a component's shadow
+boundary isn't really "context" for content encapsulated inside it - a
+defensible scope decision, not a proven-correct one. No current fixture has
+a shadow root (09-shadow is a later fixture per `03-EVIDENCE.md §2.2`), so
+none of this shadow-DOM handling has been exercised against a real page -
+implemented against the spec's explicit instruction ("identity path crosses
+host boundaries") rather than against a test that could fail if it were
+wrong. Worth writing a targeted `page.setContent()` unit test with an open
+shadow root before Day 9 needs this to actually be right, not just
+plausible.
+
+SVG's `.className` (an `SVGAnimatedString`, not a string) never comes up:
+every attribute read in `axe.ts` uses `getAttribute()`, which behaves
+identically across HTML and SVG elements. Nothing to fix, but worth stating
+explicitly since it was called out as a landmine to check for.
+
+### D30. Check 1: tier distribution across the fixture suite
+
+19 findings, scanned across all four Day 1 fixture pages:
+
+```
+Tier 1 (authored id):     18   (95%)
+Tier 2 (test hook):        0
+Tier 3 (accessible name):  0
+Tier 4 (semantic path):    1   (5%)
+Tier 5 (structural path):  0
+```
+
+Tier 1 dominates, as Day 2 already flagged: every planted defect has an id
+(`manifest.test.ts` requires `selector.startsWith('#')`). **This fixture
+suite cannot demonstrate tier distribution under real-world conditions** -
+it measures fixture-authoring convention, not identity robustness, the same
+caveat `03-EVIDENCE.md §2.5` already makes about the coverage-regression
+metric. Tiers 2, 3 and 5 are completely unexercised by anything checked in.
+Real signal on this will come from the Day 14 real-site audit, or purpose-
+built tier-specific fixtures if Day 5's goldens want to force the question
+before then.
+
+The one Tier 4 case is a genuine artifact, not synthetic: `03-contrast`'s
+translucent-scrim defect is `<div id="contrast-scrim"><span
+class="scrim">...</span></div>` — axe's `color-contrast` check targets the
+inner `<span>` (no id), not the `id`-bearing wrapper the manifest names.
+Correctly falls through to tier 4 (`main > ... > span`, semantic path)
+rather than inventing an id that isn't there. A small, real illustration of
+exactly why the tier system exists: even a hand-authored fixture produces an
+element with no helpful id once you look at what the rule actually targets.
+
+### D31. Check 2: groupKey verified to collapse a repeated element across pages
+
+The Day 1 fixtures have no shared defect across pages to test this against —
+checked directly against the fixture HTML before assuming anything: each
+page's header/nav is either unique (`01-images`) or clean
+(`02-structure`/`03-contrast`/`10-clean` share an unbroken skip-link nav).
+Reported rather than guessed.
+
+Built a small synthetic two-page test instead of leaving the question
+unanswered (`test/identity/cross-page-group.test.ts`): two pages, an
+identical broken nav link (`link-name`) on both, everything else different
+(heading, body content, path). Result: same `groupKey` on both pages,
+different `fingerprint` (headingContext and urlTemplate both feed the
+fingerprint, neither feeds groupKey) — confirmed empirically, not just by
+construction, since the test asserts headingContext and urlTemplate
+actually differ between the two runs. This is a real, if minimal, positive
+answer to `01 §8`'s dependency and the Day 14 audit estimate — but it is one
+synthetic pair, not the real-site diversity that estimate assumes. Verify
+again against an actual multi-page site before trusting the 20-40 distinct
+findings assumption.
+
+### D32. URL templating: a few judgment calls `02 §5` doesn't fully specify
+
+- **Digit-vs-hash ambiguity.** A path segment that's all digits (e.g.
+  `12345678`) is ambiguous between `:id` and `:hash`. Resolved by checking
+  digits-only first — `:hash` only ever fires on a hex string containing at
+  least one letter, since a pure-digit string is already claimed. Matches
+  the doc's own examples (`1234` → `:id`, `9f8e7d6c5b` → `:hash`, and the
+  second contains letters the first doesn't).
+- **Date triplet vs single-segment templating.** An implausible date (month
+  99) doesn't get the `:year/:month/:day` treatment, but each segment still
+  independently templates as `:id` (all-digit) — `/2026/99/99/post` →
+  `/:id/:id/:id/post`, not `/:year/99/99/post`. Not explicitly specified;
+  the alternative (leaving implausible-but-numeric segments untemplated)
+  seemed more likely to cause an unwanted difference between visually
+  similar routes.
+- **`hashRouting` semantics.** `01 §5`'s single line ("SPAs with hash
+  routing need `hashRouting: true` or every route collapses to one") implies
+  more than "don't strip the fragment" - the fragment IS the route for a
+  hash-routed SPA. Implemented as: when `hashRouting` is set, the fragment's
+  path portion is templated the same way as a normal path and appended
+  (`/app/#/product/1234` → `/app/#/product/:id`); when unset, the fragment
+  is stripped entirely, matching the doc's default. Untested against a real
+  SPA fixture - no such fixture exists yet.
