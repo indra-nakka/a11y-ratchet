@@ -6,26 +6,25 @@
 
 ## Next action
 
-> **External review remediation, task 7** — two questions, answers only, no code: (1) in
-> `src/diff/match.ts`, is a candidate pair with no accessible name on either side maxing
-> out at exactly `DEFAULT_MATCH_THRESHOLD` (0.65) deliberate Tier-5 conservatism or a
-> weights-summing-to-1.0 artifact — check the tests and D45 before answering; (2) is
-> `checkObscured`'s all-five-points-covered requirement (correct for 2.4.11 Minimum) known
-> not to extend to 2.4.12, anywhere in `docs/03-EVIDENCE.md` or the Roadmap — if not, say
-> so. Tasks 1-6 done.
+> **All 7 external-review tasks are done.** The only open item left anywhere in this
+> project is **R3 in `RUNBOOK.md`** — human verification in a browser, `brain/VERIFY.md`,
+> starting at row 1 of `audit/2026-08-20/verification-queue.tsv` (`link-name` on
+> `vuejs.org/about/team.html`, 268 instances). Nothing else is agent-blocked. Also
+> worth doing in the same sitting, still human/browser-only: the Esc-then-Tab test that
+> decides row 10 (`RUNBOOK.md` R3.5 — now partly pre-empted by D97's Escape/Shift+Tab fix,
+> worth re-checking whether the real Vue trap is now correctly classified `needs-review`
+> with escape-recovery reasoning or still flagged, before filing), and `BUGS.md` B6
+> (whether GitHub gates job summaries from logged-out viewers generally or just here).
 >
-> **Task 6 done, commits `e4619a0`/`22272b6`.** Write-only assessment (no `src/` changes,
-> as instructed): can `axe.ts`/`focusPath.ts`'s duplicated identity extraction (D62) be
-> unified behind one injected-once-per-page helper. Answer wasn't a clean "yes and
-> contained" — the mechanism is sound (direct precedent: `axe.ts` already injects
-> `AXE_SOURCE` the same way) and the cost is moderate, but `golden-pairs.test.ts`'s blast
-> radius being small is misleading, not reassuring: that suite never exercises probe-finding
-> identity at all, so its silence isn't evidence unification would be safe on that side.
-> Demonstrated, not just argued: D96 (task 4) fixed the wrapper-div bug in `axe.ts` only:
-> `focusPath.ts`'s own copy of `buildSemanticPath` still has it, confirmed by reading the
-> code, recorded as `BUGS.md` B10 rather than silently left for someone to rediscover.
-> Proposed as a two-phase Roadmap item (fixtures first, unification second, gated on the
-> first) rather than a single "unify these" line.
+> **Task 7 done, commit `d0e9828`.** Two questions, answers only, no code. Q1: the 0.65
+> threshold exactly equalling a nameless pair's score ceiling is a weights-summing-to-1.0
+> artifact, not deliberate — verified against `match.test.ts` (no test at that boundary)
+> and D45 (never discusses it). Real consequence named anyway: the ceiling is essentially
+> unreachable by actual structural churn, which is why D96 needed a path outside
+> `scoreCandidate` entirely. Q2: `checkObscured`'s 2.4.11-vs-2.4.12 scope limit is
+> undocumented anywhere in the repo, confirmed by search — `01-ARCHITECTURE.md` names the
+> wrong adjacent boundary (2.4.13, unrelated) instead of the right one (2.4.12, the direct
+> AAA upgrade of the same mechanism).
 >
 > R3 (human verification in a browser) is still the separate, still-open blocker
 > underneath all of this — unaffected by the review remediation work. See below.
@@ -115,6 +114,19 @@
   wrapper-div bug D96 fixed in `axe.ts` only, confirmed by reading the code — `BUGS.md`
   B10. Proposed as a two-phase Roadmap item (probe-focused fixtures, then unification
   gated on them existing), not a single "unify these" line.
+- **Task 7 — two questions, done, commit `d0e9828`.** Answers only, no code, as
+  instructed. Q1 (0.65 threshold vs. weights-sum artifact): artifact, verified against
+  `match.test.ts` and D45, neither of which mentions this boundary; named the real
+  consequence anyway (the ceiling is unreachable by real churn). Q2 (2.4.12
+  documentation): confirmed absent by search, and named that `01-ARCHITECTURE.md` flags
+  the wrong adjacent AAA criterion (2.4.13, unrelated) instead of the relevant one
+  (2.4.12, direct upgrade of the same occlusion mechanism).
+
+**All 7 tasks from the external review are done.** B1-B10 in `BUGS.md`: B1-B5/B7/B8 fixed;
+B6, B9, B10 open — B6 needs a human signed into GitHub (not agent-doable), B9/B10
+deliberately deferred (both need their own properly-verified passes, not rushed patches —
+same discipline as everything else this session). D91-D99 in `docs/DECISIONS.md`. Nothing
+agent-doable remains outside R3.
 
 ## Prior session (2026-08-21): R0, R1, R2, R6 done
 
@@ -163,7 +175,7 @@ included.
 
 | | Count | Where |
 |---|---|---|
-| Open bugs | 1 (B6) — B1-B5 fixed this session | `BUGS.md` |
+| Open bugs | 3 (B6, B9, B10) — B1-B5/B7/B8 fixed this session | `BUGS.md` |
 | Open tasks | see file, `Now`/`Blocking` sections | `TASKS.md` |
 | Verification rows outstanding | 25 of 26 | `audit/2026-08-20/verification-queue.tsv` |
 
