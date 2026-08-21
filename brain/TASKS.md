@@ -26,6 +26,8 @@ the Evidence column. "I think I did this" is not `done`.
 | T37 | Fix the Quickstart: registry.npmjs.org/a11y-ratchet 404s, `npx a11y-ratchet` fails for a real reader | agent | external review #1 | done | commit `359e34b` — clone+`npm link` path, executed end to end against a fresh clone of the pushed repo |
 | T38 | Add CI for the tool itself (typecheck/lint/test/build on push+PR), reuse action.yml's cache-key approach, badge | agent | external review #2 | done | commit `c7c34cc` — pushed, watched the real run go green: `gh run watch 32448977537`, 1m51s, `Test Files 39 passed (39)`, `Tests 360 passed (360)` on GitHub's runner, browser tests included |
 | T39 | `NotImplementedError` messages leak build-day vocabulary (`Day 11`/`Day 12`) — replace with actionable guidance, same error type/exit code | agent | external review #3 | done | commit `181dd10` — verified both throw paths directly against `dist/index.js` |
+| T40 | Build the churn-resistance demo (wholesale demo-site refactor, same defects), report the diff raw before opening anything | agent | external review #4 | done, awaiting your read | branch `demo/churn-resistance` (pushed, no PR) — did NOT come out clean, see `BUGS.md` B8 |
+| T41 | Decide what to do with B8 (Tier 4 wrapper-div gap): fix now, roadmap it, or something else; decide whether/how to use the `demo/churn-resistance` branch | human | — | blocked on you | `BUGS.md` B8 |
 | T10 | Backfill D91+ — Day 14 decisions | agent | R2 | done | commit `80cfaa6` — D91-D95, every figure re-derived from the raw run/diff JSON on disk this session |
 
 ## Blocking — human with a browser

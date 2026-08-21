@@ -6,13 +6,15 @@
 
 ## Next action
 
-> **External review remediation, task 4** — the demo PRs prove wiring, not the diff's
-> churn-resistance thesis. Build the churn-resistance demo on a branch (wholesale
-> `examples/demo-site/` refactor: wrapper divs, hash-renamed classes, DOM reordered where
-> it doesn't change visual order, same violations kept). Report the branch, the diff
-> output, and — if anything reclassified as `new` — which tier and why, **before opening
-> anything**. Tasks 1-3 done. Stopping and reporting after each numbered task per the
-> reviewer's explicit instruction, not running ahead.
+> **Blocked on the human, not agent-doable right now.** Task 4 (churn-resistance demo) is
+> done and reported, and it did **not** come out clean — a real, precisely-traced gap
+> (`BUGS.md` B8) in Tier 4 identity's wrapper-div robustness, on `demo/churn-resistance`
+> (pushed, no PR). Per the reviewer's own instruction ("report to me first... before
+> opening anything"), the next move — fix B8 now, roadmap it, or something else, and what
+> to do with the branch — is explicitly the human's call, not this agent's to decide.
+> Task 5 (trap-probe conservatism) is next in the numbered list once that's settled, but
+> should wait for it rather than run ahead into what might become a related identity-layer
+> discussion.
 >
 > R3 (human verification in a browser) is still the separate, still-open blocker
 > underneath all of this — unaffected by the review remediation work. See below.
@@ -51,6 +53,18 @@
   `JSON.stringify(result, null, 2)`, matching what `diff --format json` already does on
   the CLI. Verified both throw paths directly against the built `dist/index.js`, not just
   by reading the diff.
+- **Task 4 — churn-resistance demo, done, did not come out clean.** `demo/churn-resistance`
+  (pushed, no PR). Introduced 3 real defects (2× `image-alt`, 1× `color-contrast`) on the
+  demo site, then wholesale-refactored it (hash classes, wrapper divs, DOM-reordered
+  sibling cards with visual order preserved — verified via `getBoundingClientRect`, not
+  assumed) while keeping the same defects. **Not** diffed against the committed
+  `.a11y/baseline.json`, which has zero findings — that would have been vacuous; used the
+  branch's own pre/post pair instead, and said so plainly rather than silently picking a
+  reading of an ambiguous instruction. Real result: gate FAILED, 1 new + 1 fixed + 1 moved
+  for defects that never changed. Traced the exact mechanism through the identity data
+  (two compounding causes — see `BUGS.md` B8) rather than reporting just the summary line.
+  No fix applied or proposed; this is squarely the human's decision per their own
+  instruction.
 
 ## Prior session (2026-08-21): R0, R1, R2, R6 done
 

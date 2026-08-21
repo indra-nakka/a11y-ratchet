@@ -136,6 +136,62 @@ that shipped it the first time.
 
 ---
 
+## B8 — Tier 4 identity is not robust to a wrapper `<div>`, contrary to the golden suite's claim
+
+**Status:** open, unresolved by design — reported raw per instruction, no fix proposed
+**Severity:** high — undermines the README's central Diff-section claim, for a specific
+but realistic class of element · **Found by:** external review task 4 (churn-resistance
+demo), 2026-08-21 · **Branch:** `demo/churn-resistance` (pushed, not merged, no PR opened)
+
+Built a live test of the README's claim that selector-based identity — not this tool's —
+is what reports sixty regressions on a wrapper `<div>`. Introduced three real defects (2×
+`image-alt` on alt-less images, 1× `color-contrast`) on the demo site, then applied a
+wholesale structural refactor (hash-renamed classes, wrapper divs, DOM-reordered sibling
+cards with visual order preserved via CSS `order`) while keeping the same three defects.
+Full evidence and root-cause trace: `examples/demo-site/churn-resistance/README.md` on
+that branch.
+
+**Result: gate FAILED.** 1 new, 1 fixed, 1 moved, 1 persisting — for three defects that
+never actually changed.
+
+**Mechanism, traced through the identity data directly, not assumed:**
+
+1. Both alt-less images resolve at Tier 4 (empty accessible name, no id/test-hook).
+   `buildSemanticPath()` (`src/scan/axe.ts`) walks the ancestor chain to the nearest
+   landmark via `roleForElement()`, which falls back to the literal tag name
+   (`IMPLICIT_ROLES[tag] ?? tag`) for a plain `<div>` — no ARIA role, no implicit role. One
+   added wrapper `<div>` therefore adds one literal `"div"` segment to the path, changing
+   `groupKey`, `templateKey`, and the fingerprint. Not cosmetic — a real identity change.
+2. The existing "must be persisting" wrapper-div golden fixture
+   (`test/identity/golden-pairs.test.ts`, `/01-wrapper/`) does not catch this: its target
+   element is `<img id="chart">`, an authored id, so it resolves at Tier 1 and never
+   reaches Tier 4 at all. **The golden suite's wrapper-div guarantee has only ever been
+   exercised for elements with a stronger identity signal.**
+3. With exact fingerprints already broken by (1), Pass 2 fuzzy matching is what's left.
+   `headingContext` ("nearest preceding heading") is itself DOM-order-dependent and feeds
+   both the exact-match `contextSignal` and a 0.25 fuzzy weight. Reordering the sibling
+   cards changed both images' `headingContext`, and — by coincidence of the specific
+   reorder, not any real relationship — one image's new `headingContext` matched the
+   *other* image's old one. The greedy fuzzy matcher paired them, leaving the two true
+   pairs unmatched: one reads as `fixed`, the other as `new`.
+
+**What this does and doesn't show.** It does not mean every wrapper-div refactor breaks —
+the golden suite's case genuinely does hold for Tier 1-3 elements. It specifically breaks
+for elements with no id, no test hook, and no accessible name (a real, common category —
+any alt-less image, several other axe rules) once combined with a sibling-order change
+that shifts `headingContext`. Two compounding causes, not one; either alone might have
+recovered via the other's slack.
+
+No fix proposed — explicitly out of scope for this task, reported raw. Candidates for
+whoever picks this up: abstract `roleForElement`'s wrapper-`<div>` case (treat a roleless,
+attributeless `<div>`/`<span>` as transparent in the semantic-path chain rather than a
+literal segment), and/or drop `headingContext` from Pass 2's fuzzy weight for Tier 4/5
+matches specifically (it's already excluded from `groupKey` for the same reason, `02 §4`).
+Either is a real identity-layer change, not a small fix — feature freeze says roadmap, not
+now.
+
+---
+
 ## B7 — the Quickstart's first command 404s for every real reader
 
 **Status:** fixed, commit `359e34b` · **Severity:** high — it's the first command in the
