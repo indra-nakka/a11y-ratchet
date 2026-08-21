@@ -2364,3 +2364,199 @@ exists for real (D87), and corrected the README's top banner, which
 still claimed "Day 1... not yet functional" and "the manual checklist is
 the one remaining stub" - neither true as of today; no `NotImplemented`
 stub remains anywhere in `src/`.
+
+### D91. Day 14 real-site audit — three sites, `audit` mode, ethics respected
+
+First real-world run since the fixture suite was built. Two sites scanned twice each,
+back to back, to measure fingerprint stability between runs with nothing on the target
+site actually changing in between; a third scanned once as a zero-finding check.
+axe-core 4.13.0, Chromium 151.0.7922.34, Playwright 1.62.1, `--mode=audit` throughout
+(third-party allowed — a `ci`-mode run would make some findings artifacts of the
+network blocklist rather than the page, and this audit's purpose is an honest picture,
+not a diffable gate). `robots.txt` respected (default on, not overridden), concurrency 3,
+250ms politeness delay (default, not overridden).
+
+- **vuejs.org** — 40/40 pages both runs. Run 1 started `2026-08-20T18:08:33.898Z`,
+  wall-clock 119876ms; run 2 started `18:11:01.108Z`, wall-clock 114394ms. Run 1: 3359
+  findings (2964 violation, 395 needs-review) over 108 template groups. Run 2: 3477
+  findings (3008 violation, 469 needs-review) over 113 template groups — the run-to-run
+  delta is investigated in D93/D94, not assumed to be noise.
+- **ocw.mit.edu** — 40/40 pages both runs, byte-identical both times: 201 findings (88
+  violation, 113 needs-review), 48 template groups, on both run 1 (started
+  `18:08:43.984Z`, 60273ms) and run 2 (started `18:11:07.119Z`, 60252ms). Selected from
+  three proposed candidates (the others were the Smithsonian collections and the UK
+  National Archives Discovery) for publishing an institutional accessibility statement at
+  `accessibility.mit.edu` (checked HTTP 200 before scanning).
+- **gov.uk** — one run, 10/10 pages, started `18:09:13.887Z`, wall-clock 20149ms, 0
+  findings. Required `--bypass-csp` (default run refused with `axe-injection-failed`,
+  exit 3, against a strict `script-src`); `run.bypassCSP: true` recorded on the report.
+  See D92 for why the zero is real but narrower than 10 independent samples.
+
+**Probe continuity, re-verified against this run's own JSON rather than assumed:**
+`probe/keyboard-trap` fired identically in both vuejs.org runs, same two pages
+(`/tutorial/`, `/examples/`, both `textarea`) — the Day 9 finding did not regress.
+ocw.mit.edu's own probe hits are a genuinely different, real result: `/about` and
+`/educator`, both an embedded `iframe.h-100.w-100`-style video player trapping
+keyboard focus — not a copy-paste of the vuejs.org case.
+
+No page errored on any site, on any run. No page hit `settleDegraded`. No probe-blind
+region was recorded anywhere in the audit.
+
+### D92. gov.uk's zero and ocw.mit.edu's page count both needed a caveat the first draft didn't have
+
+Two corrections made after the initial worksheets shipped, both the same shape: a raw
+number was technically accurate and materially misleading without one more sentence.
+
+**gov.uk's zero-finding result is real, not a silent no-op.** A diagnostic run
+requesting `resultTypes: ['violations','incomplete','passes','inapplicable']` (the real
+tool only ever persists `violations`/`incomplete`) against the same 10 URLs found 26-31
+rules passed per page (315-515 pass-nodes), 32-37 ruled inapplicable, all 10 pages HTTP
+200 with 408-617 real DOM elements, and `color-contrast` specifically in the passing set
+on every page, not absent. axe ran for real. But 7 of the 10 URLs are `/browse/<category>`
+pages sharing GOV.UK's one browse-category template (`benefits`,
+`births-deaths-marriages`, `childcare-parenting`, `business`, `citizenship`, `justice`,
+`disabilities`); the remaining 3 are `/`, `/browse` itself, and `/help/cookies`, each its
+own template. The zero is evidence about at most 3 distinct templates, not 10 independent
+pages — corrected in `audit/2026-08-20/README.md` (commit `a204016`).
+
+**ocw.mit.edu's "40 pages" inflates on a faceted search UI.** 29 of the 40 crawled URLs
+are `/search/` with a distinct query string each (`?q=`, `?t=`, `?l=` facets — 29 distinct
+strings, re-confirmed directly against `report.pages` this session), leaving 11 genuinely
+distinct non-search pages. This is query-param templating working exactly as designed
+(`02 §5`: `?page=2` is deliberately a different page, and `?q=`/`?t=`/`?l=` are not in the
+strip-list) producing a real but non-obvious consequence — a faceted search UI can
+dominate a page-count budget. Corrected in the same README (commit `ba9f1ca`). Named as a
+build-established limitation, not fixed: faceted-search-aware templating is a roadmap item
+(`BUGS.md` known gaps), not a Day 14 fix.
+
+### D93. Three hypotheses about the vuejs.org run-to-run delta, killed one at a time by measurement
+
+Run 2 of vuejs.org has 118 more findings and 5 more template groups than run 1 with
+nothing intentionally changed on the site between them. The gap is a 130-finding cluster
+— `report.findings.new` minus `.fixed` restricted to `color-contrast`/`frame-title`,
+132 total `new` findings, 130 of them this cluster, spanning 27 pages, re-confirmed
+directly against `vuejs-diff.json` this session. Three hypotheses about its cause were
+proposed, each checked against real data rather than assumed, and each failed:
+
+1. **CodeMirror syntax-highlight re-render.** Zero of the 130 findings' selectors or
+   `html` snippets contain `cm-` or reference CodeMirror at all (re-confirmed: 0/130 on
+   both signals). Not the cause.
+2. **Carbon Ads rotation.** Only 44 of 130 selectors carry Carbon Ads' documented class
+   convention (`.carbon-text`, `.carbon-poweredby`); a further 11 are an unlabelled
+   ad-shaped `iframe` (no `src`, distinct from the site's own CodeMirror-editor iframe).
+   That's 55 of 130, not 130 — and the majority, 66, are the site's own VitePress nav bar
+   (`VPNavBarMenuGroup` flyout buttons, the `.text` logo, `.VPNavBarMenuLink` items),
+   live-confirmed as first-party markup, nothing to do with ads. The remaining 9 are
+   `/partners/`-page content — a new "Proxify" partner card that landed between runs
+   (also visible as 2 further non-churn `new` findings on that page: a missing `alt` and
+   an unlabelled link on the same card, `link-name`/`image-alt`). The ad hypothesis was
+   wrong on both counts it made: wrong that it explained the majority, and wrong that the
+   66 first-party findings were ad-adjacent noise.
+3. **First-party fingerprint churn** — that identity computation itself was unstable for
+   the 66 first-party findings. Killed directly: for a `.text`/`color-contrast` instance
+   present on a `fixed`-bucket page in run 1 and a `new`-bucket page in run 2, `groupKey`
+   and `templateKey` are byte-identical (`ab7b17cb1e603e8e` / `20f0c3e27a57ccaf`,
+   re-verified this session) and every field of `identity` — `context`, `domDepth`,
+   `ordinal`, `textContent`, `value` — matches exactly. Only `fingerprint` differs, and it
+   differs because `fingerprint` incorporates `urlTemplate` by design (`02 §5.3.5`) while
+   `groupKey`/`templateKey` deliberately exclude it (`02 §4`) — the two instances are
+   legitimately on different pages (`/`  vs `/examples/`). The identity layer is not
+   churning; it correctly recognises the same nav-bar component across pages.
+
+The real mechanism, and why none of the three explained it, is D94.
+
+### D94. The real mechanism: a page-set partitioning blind spot plus a genuine settle-timing race
+
+Once D93 ruled out identity churn, the actual question became: why does the *same* page,
+scanned twice with nothing changed, produce a different finding set? Isolated to one URL,
+`/partners/`, which has 6 nav-bar `color-contrast` findings in one run and 0 in the other.
+
+**The diff's page-set logic can't see this class of change at all.** `partitionPages`
+(`src/diff/run.ts`) matches findings only within the same URL (`02 §7`). A page-independent
+component like a site-wide nav bar that legitimately produces findings on a *different*
+subset of pages between two runs — same `groupKey`/`templateKey`, different `urlTemplate`
+— can never be classified `moved`, because fuzzy matching (`02 §6` Pass 2) never runs
+across different pages. It reads as one `fixed` on the page it left plus one `new` on the
+page it landed on, even though nothing about the underlying defect changed. This is
+distinct from a false regression in the CLAUDE.md invariant-4 sense (no single page's
+diff misclassifies a persisting finding as new) — it's a blind spot in what page-set
+partitioning can represent, not a wrong classification within a page.
+
+**The mechanism, measured live against the real page.** A live re-scan of `/partners/`,
+fresh browser per trial, requesting `passes` in addition to `violations`/`incomplete`:
+at a ~100ms wait after `domcontentloaded` (in the same window as the tool's real settle
+config — `quietMs: 150`, `quietCapMs: 2000`), 4 of 5 trials showed all 6 nav-bar elements
+failing with `bucket: incomplete`, axe `messageKey: "bgOverlap"`, `contrastRatio: 0`, no
+`fgColor`/`bgColor` resolved — axe's own signal that another element's box overlapped the
+target's at measurement time, not a genuine low-contrast pair. At a 3000ms wait, 5 of 5
+trials showed all 6 elements passing cleanly. The one 100ms-wait trial that also passed
+had 0 iframes present at check time (a slow page load that run) — consistent with the same
+mechanism, not a contradiction: an unlabelled third-party ad `iframe` (no `src`,
+ad-shaped inline style) loads a few hundred milliseconds after `domcontentloaded` and
+transiently overlaps the nav bar before its own layout settles; a check that lands in that
+window sees the overlap, one 2-3 seconds later does not. Confirmed via 5x5 repeated real
+CLI scans of the same URL: `--mode ci` (third-party blocked) was **stable at 19/19
+findings across all 5 runs, 0 nav-bar findings every time** — the ad iframe never loads
+under blocking (`iframes: 0` measured directly), so the overlap condition never has a
+chance to occur; `--mode audit` was **unstable at 19/26/26/26/19**, with 0 or 6 nav-bar
+`needs-review` findings exactly tracking whether that run's check happened to land inside
+the overlap window.
+
+`run.blockedOrigins` was recorded as an empty array (`[]`) across all 5 of the ci-mode
+CLI re-scans of this single `--max-depth 0` page — meaning no cross-origin request was
+even attempted, not that one was blocked. Flagged, not explained: the mechanism by which
+ci mode prevents the ad request from ever being initiated in a single-page scan (versus
+being initiated and then aborted, which the same code path handles and would populate
+`blockedOrigins`) was not traced further this session. Reported as an open observation.
+
+**Three consequences, named rather than left implicit:**
+
+1. **The two-mode split is now empirically justified with a traced mechanism, not just a
+   design rationale.** `01 §5` argues `ci` mode exists for diffable, low-variance gating;
+   this is the first real-site case where that variance was measured, attributed to a
+   specific third-party element, and shown to vanish completely under blocking.
+2. **The settle contract has a layout-stability gap.** `quietMs: 150` (with a `2000ms`
+   cap) is a *mutation*-quiet window — DOM mutations stopping — not a *layout*-stability
+   window. An iframe that finishes mutating the DOM (it's inserted) before it finishes
+   reflowing into its final position can pass the quiet check while still visually
+   overlapping other elements. Named as a roadmap item, not fixed today — feature freeze.
+3. **`checks[].data` is discarded at normalise time.** Diagnosing this required a live
+   re-scan requesting `passes` and reading `check.data` directly, because the shipped
+   `Finding` object never carries `fgColor`/`bgColor`/`contrastRatio`/`messageKey` — the
+   difference between "contrast issue here" and "axe couldn't resolve a background,
+   here's why" is currently invisible in every persisted report. Named as a roadmap item.
+
+### D95. Verification queue: re-stratified by verification cost, not just instance count
+
+The original per-site worksheets (`vuejs.org.tsv`, `ocw.mit.edu.tsv`, commit `8db17dc`)
+stratified every template into A (≥10 instances, 46+6 = 52 rows across both sites) or a
+seeded random sample B (15 per site, `mulberry32(20260820)`, Fisher-Yates over the
+remainder sorted by `templateKey`) — 61 rows earmarked for hand verification. At an
+estimated ~4 minutes per row, that's over five hours, not a realistic single pass.
+
+Re-stratified into `audit/2026-08-20/verification-queue.tsv` (commit `a204016`) by what
+actually drives verification cost, not just instance count: `color-contrast` rows need a
+live page open with a colour picker; every other rule can usually be judged from the
+selector, accessible name, and one screenshot.
+
+- **Group 1** (13 rows) — every non-`color-contrast` template from strata A/B, both
+  sites, sorted by instance count. Verify every row.
+- **Group 2** (12 rows) — `color-contrast` templates only, drawn
+  weighted-random-without-replacement (weight = instance count) over the 69 eligible
+  stratum A/B templates, same seed. All 12 landed on vuejs.org — re-confirmed this
+  session directly against the committed TSV — because vuejs.org's largest
+  `color-contrast` templates run into the hundreds of instances while ocw.mit.edu's
+  largest is 22, and the weighting is intentionally biased toward the templates with the
+  most affected users. `fgColor`/`bgColor`/`contrastRatio` columns were populated from a
+  live re-scan matched by resolving both the tool's selector and axe's own `target[0]` to
+  the same DOM element (10 of 12 matched; 1 of 12 didn't reproduce live at all; 1 of 12
+  reproduced as `messageKey: bgOverlap` with axe reporting no colours — the same
+  mechanism as D94, on a different page).
+- **Group 3** (1 row) — the run-to-run churn cluster from D93/D94, recorded as a single
+  row (130 instances, 27 pages) with its full selector breakdown rather than 130
+  individual rows, since D94 already established the mechanism.
+
+The `verdict` column is empty on all 26 data rows in every TSV — validated by column
+count (17 per row) and by checking the verdict column's set of distinct values is exactly
+`{"", "verdict"}` (the header). No agent has written into it, and per `brain/RUNBOOK.md`
+R3, none will.
