@@ -2560,3 +2560,106 @@ The `verdict` column is empty on all 26 data rows in every TSV — validated by 
 count (17 per row) and by checking the verdict column's set of distinct values is exactly
 `{"", "verdict"}` (the header). No agent has written into it, and per `brain/RUNBOOK.md`
 R3, none will.
+
+---
+
+## 2026-08-21 — external review, task 4/5
+
+### D96. Wrapper `<div>`s broke Tier 4 identity; nameless-collision matching had no way to recover — both fixed, verified against the demo that found them
+
+External review task 4 built a churn-resistance demo (`examples/demo-site/churn-resistance/`,
+`brain/BUGS.md` B8) to test the README's Diff-section claim directly: does a wholesale,
+cosmetic-only refactor (wrapper divs, hash-renamed classes, a sibling reorder that doesn't
+change visual order) diff clean against the same defects, unchanged? It didn't — gate
+FAILED, 1 new + 1 fixed + 1 moved for three defects that never changed. Traced to two
+separate, compounding causes, both real:
+
+**Cause 1 — `buildSemanticPath` (`src/scan/axe.ts`) recorded a literal tag-name segment
+for every roleless ancestor.** Tier 4 ("semantic path") is documented as a "role/landmark
+path from nearest landmark ancestor" (`02 §3.1`), but the implementation fell back to the
+raw tag name for any ancestor with no role — `roleForElement`'s `IMPLICIT_ROLES[tag] ??
+tag`. A plain `<div>`/`<span>` wrapper has no ARIA role and no implicit one, so it
+contributed a literal `"div"` segment, same as a real landmark or heading would. One
+wrapper div therefore changed `groupKey`, `fingerprint`, and (via `identity.value`) the
+exact match, for any element resolving at Tier 4 — no id, no test hook, no accessible
+name. The existing "must be persisting" wrapper-div golden fixture (case 1) never caught
+this because its target element (`<img id="chart">`) has an authored id and resolves at
+Tier 1, never reaching Tier 4 at all.
+
+**Fix:** added `hasRealRole()`, mirroring `roleForElement`'s own branches as a boolean
+predicate, and changed `buildSemanticPath`'s ancestor walk to skip (not stop at, not
+substitute — omit entirely) any ancestor node that fails it. The element's own segment
+(first loop iteration) always contributes regardless of its own role, since that's what
+the path is describing. This matches how real accessibility trees actually treat a
+roleless generic container (`role="generic"`, pruned) rather than inventing new behaviour.
+
+**Cause 2 — Pass 2 had no way to recover a same-shape collision family once its exact
+fingerprints diverged, and this was already a known, named, deliberately-deferred gap.**
+`headingContext` ("nearest preceding heading") is itself document-order-dependent, and
+feeds both the exact-match `contextSignal` and a 0.25 fuzzy weight (`02 §6`). Reordering
+sibling elements shifts it for every member of the reordered group — not by a little, by
+enough to either coincidentally favour the wrong pairing (what happened in the demo:
+`Priya-pre` and `Amara-post` shared a heading context purely by chance of the reorder, so
+that pair alone crossed the 0.65 threshold, exhausting the only slot and orphaning the
+other two) or starve every pairing below threshold, and no existing weight distinguishes
+those two outcomes. `DECISIONS.md` D48 and D49 (Day 6) already named this exact root
+cause — "`§6`'s five signals don't reward a stable, non-generated `identity.value` on its
+own" — for the pagination case and the unlabelled-relocation case respectively, and
+deliberately deferred fixing it: "Worth considering for a future revision of the weight
+table; not changed today, since that would be a spec change made under end-of-day
+pressure rather than considered design" (D49).
+
+Considered and rejected: adding `identity.value`/`identityTier` equality as a new scored
+signal. It would have regressed golden case 18b on contact — 18b's icon-only relocated
+button has a STABLE `identity.value` (same authored id) across a genuine landmark change,
+and 18b is deliberately testing that this degrades to `new`+`fixed`, not `moved` (its own
+comment: "no threshold choice both accepts that and keeps rejecting unrelated pairs").
+Raw `identity.value` equality doesn't know the difference between "same shape, same
+landmark, reordered" (this fix's target) and "same shape, different landmark, relocated"
+(case 18b, must NOT match).
+
+**Fix:** `groupKey` does know the difference — it already folds in `landmarkRole`
+specifically "to distinguish 'same defect, different landmark'" (`02 §4`, and case 18's
+own test comment). Added `base.groupKey === head.groupKey` as an alternate acceptance path
+into Pass 2's candidate list, independent of `scoreCandidate`'s score — a shared groupKey
+is sufficient on its own to become a match candidate, scored at `max(realScore,
+threshold)` so a genuinely well-evidenced match (e.g. a real accessible-name match) still
+outranks it in the greedy assignment. This does not attempt to recover WHICH specific base
+element maps to which specific head element within a tied family — `test/diff/
+collision-multiset.test.ts` already establishes, and asserts, that per-instance pairing
+inside a tied family isn't a claim this system can or needs to make; only that the family
+persists as a group, which is `02 §2` goal 1 (no false regressions) — the actual
+invariant. Verified this doesn't touch case 18b (its groupKey genuinely differs, by
+design, so the new path never triggers there) or case 20/pagination (each link's
+accessible name — hence groupKey — differs by design, same reason).
+
+**Verification, not assumed:** full `npm run check` (39 files, 361 tests) green, including
+every existing golden case unchanged. One test (`match.test.ts`, "does not match below the
+threshold") had to be fixed — its fixture reused the `finding()` helper's hardcoded
+default `groupKey` across two findings, which accidentally satisfied the new alternate
+path for a pair the test wants to prove unrelated; given each an explicit, distinct
+`groupKey`. Added golden case 21
+(`test/identity/golden-pairs.test.ts`): two nameless images, each wrapped and reordered
+relative to the other (a card's caption trails its own image, so reordering the cards
+genuinely reassigns which heading precedes which image — confirmed the fixture actually
+exercises this by asserting the headingContext values themselves, not just the final diff
+counts). Confirmed via `git stash` that this case fails without the two fixes (`new: 1,
+fixed: 1, moved: 1`) and passes with them (`new: 0, fixed: 0`) — a real regression guard,
+not a coincidentally-passing assertion.
+
+Then re-ran the actual demo that found this, rebuilt against the fix, not just the new
+golden case: `examples/demo-site/churn-resistance/`'s pre/post pair, re-scanned and
+re-diffed. **Gate PASSED. 0 new, 0 fixed** — 2 persisting + 1 moved for the three original
+defects (the `color-contrast` finding was already exact-matching and unaffected by either
+cause; the two `image-alt` findings split one exact + one fuzzy-via-groupKey, an arbitrary
+specific pairing exactly as the collision-multiset precedent describes, with the correct
+aggregate outcome).
+
+Not touched: `buildStructuralPath` (Tier 5) has the analogous issue for `templateKey`, but
+Tier 5's whole purpose is same-tag sibling *position*, so making it wrapper-transparent
+the same way would remove real disambiguating information, not just noise — a
+different, not-yet-designed trade-off, left alone. The `scoreCandidate` empty-string
+accessible-name bug (`""===""` currently earns full credit, the same as a genuine shared
+name) is real and independently found while investigating this, but fixing it removes
+scoring headroom multiple existing behaviours currently depend on and needs its own
+rebalancing pass verified the same way this one was — not bundled in here.
