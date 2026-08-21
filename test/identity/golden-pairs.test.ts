@@ -248,6 +248,33 @@ pair(
 );
 
 /* -------------------------------------------------------------------------- */
+/* Case 21: repeated nameless elements must survive a wrapper div AND a       */
+/* sibling reorder, as a group (DECISIONS.md D96, external review Day 15)     */
+/* -------------------------------------------------------------------------- */
+
+// Two nameless images (no id, no alt - Tier 4, since main has an implicit
+// landmark role), each preceded by its own heading. `headingContext` is
+// "nearest preceding heading in document order" (02 §3.4), so swapping the
+// two cards changes both images' heading context even though neither
+// image itself moved relative to its own heading - the exact scenario the
+// churn-resistance demo (examples/demo-site/churn-resistance/) found
+// broken: one wrapper div alone changed groupKey/fingerprint (Tier 4's
+// semantic path used to record a literal "div" segment per wrapper), and
+// the reorder then let a coincidental headingContext match steal the only
+// pairing that crossed the pass-2 threshold, orphaning the other two
+// findings into 1 new + 1 fixed.
+// Each card's caption TRAILS its own image (`<img><h2>Name</h2>`, matching
+// the demo site's member cards) - so an image's "nearest preceding
+// heading" is the PREVIOUS card's caption, not its own. Reordering the
+// two card units therefore reassigns both images' headingContext even
+// though each image stays paired with its own correct caption.
+pair(
+  '/21-nameless-reorder/',
+  '<main id="m"><h1>Report</h1><div class="card"><img src="./a.jpg"></div><h2>Alice</h2><div class="card"><img src="./b.jpg"></div><h2>Bob</h2></main>',
+  '<main id="m"><h1>Report</h1><div class="wrap"><div class="card"><img src="./b.jpg"></div></div><h2>Bob</h2><div class="wrap"><div class="card"><img src="./a.jpg"></div></div><h2>Alice</h2></main>',
+);
+
+/* -------------------------------------------------------------------------- */
 /* Test harness                                                               */
 /* -------------------------------------------------------------------------- */
 
@@ -671,5 +698,42 @@ describe('golden pairs: must pair 1-to-1 (not collapse)', () => {
     // the identity value really did change, so `persisting` would be wrong
     // in the other direction now.
     expect(result.findings.persisting).toHaveLength(0);
+  }, 30_000);
+});
+
+/* -------------------------------------------------------------------------- */
+/* Case 21: repeated nameless elements survive a wrapper + reorder as a group */
+/* -------------------------------------------------------------------------- */
+
+describe('golden pairs: repeated nameless elements survive a wrapper + reorder, as a group', () => {
+  it('21. two nameless images, each wrapped and reordered relative to the other - 0 new, 0 fixed', async () => {
+    const { before, after } = await scanPair('/21-nameless-reorder/');
+    const beforeFindings = byRule(before, 'image-alt');
+    const afterFindings = byRule(after, 'image-alt');
+    expect(beforeFindings).toHaveLength(2);
+    expect(afterFindings).toHaveLength(2);
+    expect(beforeFindings.every((f) => f.identityTier === 4)).toBe(true);
+    expect(afterFindings.every((f) => f.identityTier === 4)).toBe(true);
+
+    // headingContext genuinely reassigns (confirms the fixture actually
+    // exercises the reorder, not just the wrapper): each image's "nearest
+    // preceding heading" is the PREVIOUS card's caption, not its own, so
+    // swapping which card comes first changes both images' heading
+    // context even though neither image lost its own caption.
+    const beforeHeadings = beforeFindings.map((f) => f.identity.context.headingContext).sort();
+    const afterHeadings = afterFindings.map((f) => f.identity.context.headingContext).sort();
+    expect(beforeHeadings).toEqual(['alice', 'report']);
+    expect(afterHeadings).toEqual(['bob', 'report']);
+
+    // The actual claim: the family persists as a group. Per
+    // collision-multiset.test.ts's own documented limitation, WHICH
+    // specific before-image maps to which specific after-image is not a
+    // claim this system makes or needs to make - only that 2 findings in
+    // become 2 findings out, none reading as new or fixed.
+    const result = diffPair(before, after);
+    expect(result.findings.new).toHaveLength(0);
+    expect(result.findings.fixed).toHaveLength(0);
+    expect(result.findings.persisting.length + result.findings.moved.length).toBe(2);
+    expect(result.gate.passed).toBe(true);
   }, 30_000);
 });

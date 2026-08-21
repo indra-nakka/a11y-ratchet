@@ -159,13 +159,36 @@ export function matchFindings(
   // sharing `source` and an equivalent `ruleId` (exact, or via
   // wcag/ruleMap.ts's ruleEquivalence table - `§6` originally said "sharing
   // ruleId exactly"; widened for golden case 7, DECISIONS.md D35/D42).
+  //
+  // A shared `groupKey` is also, on its own, enough to become a candidate -
+  // DECISIONS.md D49/D48 both named the same gap (no signal rewards a
+  // stable identity.value/groupKey on its own) and deliberately deferred
+  // it as future work, not a tuning problem the existing five weights could
+  // solve. `groupKey` folds in `landmarkRole` specifically (D49's case 18
+  // comment: "distinguish 'same defect, different landmark'"), so a genuine
+  // relocation across landmarks - case 18b, kept degrading to new+fixed on
+  // purpose - still gets a DIFFERENT groupKey and isn't affected by this.
+  // What it does catch: a repeated, nameless element (Tier 4/5, no id, no
+  // accessible name) whose siblings get reordered within the SAME
+  // landmark - `headingContext` shifts for every member, which can either
+  // coincidentally favour the wrong pairing or starve every pairing below
+  // threshold, and no scoring weight distinguishes the two outcomes
+  // (D96, found via the churn-resistance demo). Matching by groupKey
+  // doesn't claim to recover WHICH specific base maps to which specific
+  // head within a tied family - `collision-multiset.test.ts` already
+  // establishes that per-instance pairing inside a tied family isn't a
+  // claim this system can make - only that the family persists as a group,
+  // which is the actual invariant (`02 §2` goal 1: no false regressions).
   const candidates: Array<{ base: Finding; head: Finding; score: number }> = [];
   for (const base of unmatchedBase) {
     for (const head of unmatchedHead) {
       if (base.source !== head.source) continue;
       if (!areRulesEquivalent(base.ruleId, head.ruleId)) continue;
       const score = scoreCandidate(base, head);
-      if (score >= threshold) candidates.push({ base, head, score });
+      const sameGroup = base.groupKey === head.groupKey;
+      if (score >= threshold || sameGroup) {
+        candidates.push({ base, head, score: sameGroup ? Math.max(score, threshold) : score });
+      }
     }
   }
 

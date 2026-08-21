@@ -272,6 +272,23 @@ async function collectRawFindings(args: {
     return IMPLICIT_ROLES[tag] ?? tag;
   }
 
+  // Whether `el` carries any role a real accessibility tree would expose -
+  // explicit `role`, an implicit landmark, `<a href>`, or a tag in
+  // `IMPLICIT_ROLES`. Everything else (a plain `<div>`/`<span>`/`<p>`
+  // wrapper with none of those) is `role="generic"` and gets pruned from
+  // real accessibility trees - `buildSemanticPath` below uses this to skip
+  // exactly those ancestors, so a styling-only wrapper doesn't perturb
+  // Tier 4 identity (external review, Day 15: found via a churn-resistance
+  // demo where wrapping a nameless image changed its groupKey/templateKey/
+  // fingerprint on the wrapper div alone - `docs/DECISIONS.md` D96).
+  function hasRealRole(el: Element): boolean {
+    if (el.getAttribute('role')) return true;
+    if (implicitLandmarkRole(el)) return true;
+    const tag = el.tagName.toLowerCase();
+    if (tag === 'a' && el.hasAttribute('href')) return true;
+    return tag in IMPLICIT_ROLES;
+  }
+
   function nearestLandmarkAncestor(el: Element): Element | null {
     let node = elementParent(el);
     while (node) {
@@ -379,7 +396,14 @@ async function collectRawFindings(args: {
     const chain: string[] = [];
     let node: Element | null = el;
     while (node && node !== landmark) {
-      chain.unshift(roleForElement(node));
+      // The element itself always contributes, even roleless - its own
+      // segment is what this path describes. A roleless ANCESTOR
+      // (a plain wrapper div/span/etc, `role="generic"` in a real
+      // accessibility tree) contributes nothing there and is skipped here
+      // too, rather than appearing as a literal tag-name segment.
+      if (node === el || hasRealRole(node)) {
+        chain.unshift(roleForElement(node));
+      }
       node = elementParent(node);
     }
     // The landmark's own role always survives capping - it identifies WHICH

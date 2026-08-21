@@ -148,8 +148,14 @@ describe('matchFindings — pass 2 (fuzzy)', () => {
   });
 
   it('does not match below the threshold', () => {
-    const base = [finding({ fingerprint: 'base-fp', accessibleName: 'Contact us', identity: { value: 'a', ordinal: 0, context: context({ nearestLandmark: 'navigation' }), domDepth: 2 } })];
-    const head = [finding({ fingerprint: 'head-fp', accessibleName: 'Something else entirely', identity: { value: 'b', ordinal: 0, context: context({ nearestLandmark: 'contentinfo' }), domDepth: 40 } })];
+    // Distinct groupKeys, not the finding() default shared by both - a
+    // real groupKey is computed from accessibleName + landmarkRole (02
+    // §4), which differ here, so two real findings this unrelated would
+    // never share one. Reusing the default would trip the groupKey
+    // alternate-acceptance path (D96) for a pair this test wants to prove
+    // is genuinely unrelated.
+    const base = [finding({ fingerprint: 'base-fp', groupKey: 'group-contact-us', accessibleName: 'Contact us', identity: { value: 'a', ordinal: 0, context: context({ nearestLandmark: 'navigation' }), domDepth: 2 } })];
+    const head = [finding({ fingerprint: 'head-fp', groupKey: 'group-something-else', accessibleName: 'Something else entirely', identity: { value: 'b', ordinal: 0, context: context({ nearestLandmark: 'contentinfo' }), domDepth: 40 } })];
     const result = matchFindings(base, head, { matchThreshold: DEFAULT_MATCH_THRESHOLD });
     expect(result.matched).toHaveLength(0);
   });
