@@ -215,6 +215,36 @@ verified the same rigorous way this fix was, not a rushed bundle-in.
 
 ---
 
+## B10 — probe findings are still vulnerable to the wrapper-div identity break D96 fixed for axe findings
+
+**Status:** open, found while writing the Task 6 identity-duplication assessment
+(2026-08-21) · **Severity:** medium — same mechanism as B8, narrower blast radius (only
+nameless focusable elements, only probe-sourced findings) · **File:**
+`src/scan/probes/focusPath.ts`'s own `buildSemanticPath` (~line 592)
+
+D62's own duplication decision predicted this exactly: "if `axe.ts`'s identity extraction
+changes again, `focusPath.ts`'s copy will not notice." D96 fixed `axe.ts`'s
+`buildSemanticPath` to skip roleless wrapper ancestors instead of using their tag name.
+`focusPath.ts` has its own, separate `buildSemanticPath` (duplicated per D62, not shared)
+that was never touched — confirmed by reading it directly, still does
+`chain.unshift(cursor.getAttribute('role') ?? cursor.tagName.toLowerCase())`
+unconditionally for every ancestor. A nameless focusable element (no id, no test hook, no
+accessible name — an icon-only trapped control is exactly this shape, see golden case
+18b) wrapped in an extra `<div>` between scans will still misclassify a persisting
+`probe/keyboard-trap` or `probe/focus-obscured` finding as new+fixed, the same mechanism
+B8 was, just on the probe side.
+
+**Not fixed today** — out of scope for the task that found it (`docs/DECISIONS.md` D98 is
+an assessment, explicitly not a refactor). D98 proposes fixing the duplication itself
+(shared injected helpers) as a two-phase Roadmap item, gated on building probe-focused
+identity/churn regression fixtures first — nothing in the current test suite would catch
+this bug or verify a fix for it. If someone wants a narrower, faster fix than full
+unification: mirroring D96's `hasRealRole` skip into `focusPath.ts`'s own copy would close
+this specific gap without waiting on unification, at the cost of the duplication
+diverging by one more deliberate, documented departure rather than an accidental one.
+
+---
+
 ## B9 — `scoreCandidate` credits two empty accessible names as if they matched
 
 **Status:** open, found while fixing B8 (2026-08-21), deliberately not bundled in
