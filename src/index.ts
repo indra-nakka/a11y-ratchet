@@ -165,7 +165,10 @@ export function renderReport(report: Report, options: ReportOptions): Promise<st
   }
   // Exhaustive over `ReportFormat`; a future format lands as a type error here, not a silent throw.
   const unreachable: never = options.format;
-  throw new NotImplementedError(`renderReport() format "${String(unreachable)}"`, 'Day 11');
+  throw new NotImplementedError(
+    `renderReport() format "${String(unreachable)}"`,
+    'Valid formats are "summary", "html", and "json".',
+  );
 }
 
 /**
@@ -189,7 +192,12 @@ export function renderDiff(result: DiffResult, options: ReportOptions): Promise<
   if (options.format === 'html') {
     return Promise.resolve(renderDiffHtml(result));
   }
-  throw new NotImplementedError(`renderDiff() format "${options.format}"`, 'Day 12');
+  throw new NotImplementedError(
+    `renderDiff() format "${options.format}"`,
+    'DiffResult is not a versioned artifact the way a Report is, so there is no dedicated ' +
+      'JSON renderer for it — use JSON.stringify(result, null, 2) directly, which is exactly ' +
+      'what `diff --format json` does on the CLI.',
+  );
 }
 
 /**

@@ -18,12 +18,17 @@ export class A11yRatchetError extends Error {
 }
 
 /**
- * Thrown by every stubbed entry point until its day in the plan lands. Carries
- * exit code 3 (tool error), never 0 — a stub must not read as a pass.
+ * Thrown when a code path is deliberately unsupported — a format value that
+ * reaches a branch no output implementation handles, whether by bypassing
+ * the type system or by hitting a case documented as intentionally out of
+ * scope for that function. Carries exit code 3 (tool error), never 0 — an
+ * unsupported case must not read as a pass. `guidance` names what to do
+ * instead; it's read by a library consumer, not by someone with this
+ * project's own history in mind, so it must stand on its own.
  */
 export class NotImplementedError extends A11yRatchetError {
-  constructor(what: string, plannedDay: string) {
-    super(`${what} is not implemented yet (planned: ${plannedDay}).`, 3);
+  constructor(what: string, guidance: string) {
+    super(`${what} is not supported. ${guidance}`, 3);
     this.name = 'NotImplementedError';
   }
 }
