@@ -6,15 +6,17 @@
 
 ## Next action
 
-> **Blocked on the human, not agent-doable right now.** Task 4 (churn-resistance demo) is
-> done and reported, and it did **not** come out clean — a real, precisely-traced gap
-> (`BUGS.md` B8) in Tier 4 identity's wrapper-div robustness, on `demo/churn-resistance`
-> (pushed, no PR). Per the reviewer's own instruction ("report to me first... before
-> opening anything"), the next move — fix B8 now, roadmap it, or something else, and what
-> to do with the branch — is explicitly the human's call, not this agent's to decide.
-> Task 5 (trap-probe conservatism) is next in the numbered list once that's settled, but
-> should wait for it rather than run ahead into what might become a related identity-layer
-> discussion.
+> **External review remediation, task 5** — trap-probe conservatism (scoped freeze
+> exception): teach `probe/keyboard-trap` to try Escape and Shift+Tab before a cycle
+> counts as a trap, keep the finding `needs-review` (invariant 3 unaffected), add fixture
+> coverage in `test/fixtures/pages/08-focus-trap/`, record against D67. Tasks 1-4 done.
+>
+> **Task 4 landed as a real fix, not just a report** — the user said "fix now" after
+> seeing B8's raw result. Commits `7124b9f`/`9fddefb` on `main`; see `docs/DECISIONS.md`
+> D96 and `BUGS.md` B8 for the full trace. Re-running the actual demo against the fix
+> confirmed the gate now passes (0 new, 0 fixed) — not assumed from the golden suite alone.
+> One new, deliberately-deferred finding surfaced during the fix: `BUGS.md` B9 (a real but
+> separate scoring bug, needs its own rebalancing pass, not bundled in).
 >
 > R3 (human verification in a browser) is still the separate, still-open blocker
 > underneath all of this — unaffected by the review remediation work. See below.
@@ -63,8 +65,20 @@
   reading of an ambiguous instruction. Real result: gate FAILED, 1 new + 1 fixed + 1 moved
   for defects that never changed. Traced the exact mechanism through the identity data
   (two compounding causes — see `BUGS.md` B8) rather than reporting just the summary line.
-  No fix applied or proposed; this is squarely the human's decision per their own
-  instruction.
+  Reported raw, no fix applied — the decision was the human's per their own instruction.
+  **User said "fix now"; fixed, commits `7124b9f`/`9fddefb`.** Two changes:
+  `buildSemanticPath` skips roleless wrapper ancestors instead of using their tag name
+  (cause 1, direct fix); Pass 2 gained a `groupKey`-equality alternate acceptance path
+  (cause 2 — this is D48/D49's Day-6-deferred gap, implemented now with the golden suite
+  to check it against; used `groupKey` specifically, not raw `identity.value`, after
+  confirming raw value-equality would have wrongly turned golden case 18b into a `moved`
+  match). Golden case 21 added and confirmed via `git stash` to fail without the fix and
+  pass with it — a real regression guard, not a coincidence. Full suite 361/361. Re-ran
+  the actual demo against the fixed code (not just trusted the golden suite): gate now
+  PASSES, 0 new, 0 fixed. One new finding deliberately deferred, not bundled in: `BUGS.md`
+  B9 (`scoreCandidate` credits two empty accessible names as a match — real, but fixing it
+  removes scoring headroom other cases currently lean on; needs its own rebalancing pass
+  with the same rigor, not a rushed patch).
 
 ## Prior session (2026-08-21): R0, R1, R2, R6 done
 

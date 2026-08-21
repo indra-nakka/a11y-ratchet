@@ -138,10 +138,12 @@ that shipped it the first time.
 
 ## B8 — Tier 4 identity is not robust to a wrapper `<div>`, contrary to the golden suite's claim
 
-**Status:** open, unresolved by design — reported raw per instruction, no fix proposed
+**Status:** fixed, commits `7124b9f`/`9fddefb` (`docs/DECISIONS.md` D96)
 **Severity:** high — undermines the README's central Diff-section claim, for a specific
 but realistic class of element · **Found by:** external review task 4 (churn-resistance
-demo), 2026-08-21 · **Branch:** `demo/churn-resistance` (pushed, not merged, no PR opened)
+demo), 2026-08-21 · **Evidence branch:** `demo/churn-resistance` (pushed, historical —
+demonstrates the bug against the pre-fix code; not merged, no PR; left as-is since it's
+now a record of the finding, not something to update)
 
 Built a live test of the README's claim that selector-based identity — not this tool's —
 is what reports sixty regressions on a wrapper `<div>`. Introduced three real defects (2×
@@ -182,13 +184,68 @@ any alt-less image, several other axe rules) once combined with a sibling-order 
 that shifts `headingContext`. Two compounding causes, not one; either alone might have
 recovered via the other's slack.
 
-No fix proposed — explicitly out of scope for this task, reported raw. Candidates for
-whoever picks this up: abstract `roleForElement`'s wrapper-`<div>` case (treat a roleless,
-attributeless `<div>`/`<span>` as transparent in the semantic-path chain rather than a
-literal segment), and/or drop `headingContext` from Pass 2's fuzzy weight for Tier 4/5
-matches specifically (it's already excluded from `groupKey` for the same reason, `02 §4`).
-Either is a real identity-layer change, not a small fix — feature freeze says roadmap, not
-now.
+**Fixed 2026-08-21, user said "fix now."** Two changes, not the two candidates speculated
+above (dropping `headingContext`'s weight turned out to be unnecessary and, on reflection,
+would have made things worse — see D96 for why):
+
+1. `buildSemanticPath` now skips roleless ancestors entirely (a new `hasRealRole()`
+   predicate) rather than falling back to their tag name — cause 1, fixed directly.
+2. `src/diff/match.ts`'s Pass 2 gained a `groupKey`-equality alternate acceptance path,
+   independent of `scoreCandidate`'s score — this is what D48/D49 (Day 6) already
+   identified and deliberately deferred ("no signal rewards a stable identity.value on its
+   own"), implemented now with the golden suite to verify it against. Uses `groupKey`, not
+   raw `identity.value`, specifically because raw value-equality would have wrongly turned
+   golden case 18b into a `moved` match (its whole point is that it must NOT match) —
+   `groupKey` folds in `landmarkRole`, which correctly keeps 18b's genuine landmark change
+   from triggering the new path.
+
+Golden case 21 added, confirmed (via `git stash`) to fail without the fix and pass with
+it. Full suite 361/361. Re-ran the actual demo against the fix: gate now PASSES, 0 new, 0
+fixed. Full trace: `docs/DECISIONS.md` D96.
+
+**Deliberately not touched, named so the next person doesn't have to rediscover it:**
+`buildStructuralPath` (Tier 5) has the analogous wrapper-div issue for `templateKey`, but
+Tier 5's whole purpose is same-tag sibling *position* — making it wrapper-transparent the
+same way would remove real disambiguating information, a different trade-off that needs
+its own design pass. `scoreCandidate`'s empty-accessible-name bug (`"" === ""` currently
+earns the full 0.35 credit, same as a genuine shared name) is real, found while
+investigating this, and is NOT fixed — removing it turns out to remove scoring headroom
+several existing behaviours currently lean on, and needs a proper rebalancing pass
+verified the same rigorous way this fix was, not a rushed bundle-in.
+
+---
+
+## B9 — `scoreCandidate` credits two empty accessible names as if they matched
+
+**Status:** open, found while fixing B8 (2026-08-21), deliberately not bundled in
+**Severity:** medium — a real correctness bug, but not blocking; may currently be
+load-bearing for other cases in ways that need checking, not assuming
+**File:** `src/diff/match.ts`, `scoreCandidate`
+
+`if (base.accessibleName !== undefined && base.accessibleName === head.accessibleName)`
+awards the full 0.35 weight when both sides are `""` (empty string) — genuinely different
+from `undefined` (which the existing `does not treat two missing accessible names as a
+match` test in `match.test.ts` correctly covers), and NOT covered by that test: an element
+with `alt` entirely absent gets `accessibleName: ""` from `axe.commons.text.accessibleText`
+(present, not `undefined`), so in real Finding data — not just this test's synthetic
+`undefined` case — two unrelated nameless elements anywhere on a page currently score 0.35
+for "matching," rewarding the *absence* of a name as if it were a *shared* one.
+
+**Why not fixed alongside B8/D96:** requiring a truthy (non-empty) accessible name before
+awarding the credit is the obviously correct fix in isolation, but B8's investigation found
+that Pass 2's current weight table gives a nameless, textless Tier 4/5 element a maximum
+possible score around 0.45 (context 0.25 + urlTemplate 0.10 + domDepth up to 0.10) even
+with every other signal perfect — already below the 0.65 threshold. The empty-name credit
+is, right now, accidentally load-bearing: it's part of what lets some nameless-element
+matches cross threshold at all pre-D96. Removing it without a compensating change would
+make MORE nameless-element cases degrade to `new`+`fixed`, not fewer — the opposite of
+`02 §2` goal 1. (D96's `groupKey` fix helps here too since it doesn't depend on
+`scoreCandidate` at all, but hasn't been checked against every case this bug currently
+papers over.)
+
+**Needs:** a properly-verified rebalancing pass — same rigor as D96 (full golden suite,
+git-stash-verified regression test, checked against real-site behaviour), not a one-line
+patch. Roadmap, not urgent — B8's actual observed failure is fixed regardless of this one.
 
 ---
 

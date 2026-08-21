@@ -27,7 +27,9 @@ the Evidence column. "I think I did this" is not `done`.
 | T38 | Add CI for the tool itself (typecheck/lint/test/build on push+PR), reuse action.yml's cache-key approach, badge | agent | external review #2 | done | commit `c7c34cc` — pushed, watched the real run go green: `gh run watch 32448977537`, 1m51s, `Test Files 39 passed (39)`, `Tests 360 passed (360)` on GitHub's runner, browser tests included |
 | T39 | `NotImplementedError` messages leak build-day vocabulary (`Day 11`/`Day 12`) — replace with actionable guidance, same error type/exit code | agent | external review #3 | done | commit `181dd10` — verified both throw paths directly against `dist/index.js` |
 | T40 | Build the churn-resistance demo (wholesale demo-site refactor, same defects), report the diff raw before opening anything | agent | external review #4 | done, awaiting your read | branch `demo/churn-resistance` (pushed, no PR) — did NOT come out clean, see `BUGS.md` B8 |
-| T41 | Decide what to do with B8 (Tier 4 wrapper-div gap): fix now, roadmap it, or something else; decide whether/how to use the `demo/churn-resistance` branch | human | — | blocked on you | `BUGS.md` B8 |
+| T41 | Decide what to do with B8 (Tier 4 wrapper-div gap): fix now, roadmap it, or something else | human | — | done | you said "fix now" |
+| T42 | Fix B8 for real: buildSemanticPath wrapper-div transparency + groupKey Pass-2 acceptance path | agent | external review #4 fix | done | commits `7124b9f`/`9fddefb`, `docs/DECISIONS.md` D96 - golden case 21 added, full suite 361/361, re-ran the actual demo against the fix (gate now passes) |
+| T43 | Rebalance `scoreCandidate`'s weight table to fix the empty-accessible-name credit bug (B9) without regressing nameless-element matching | agent | post-B8 | todo | `BUGS.md` B9 - needs the same full-golden-suite rigor as D96, not a quick patch |
 | T10 | Backfill D91+ — Day 14 decisions | agent | R2 | done | commit `80cfaa6` — D91-D95, every figure re-derived from the raw run/diff JSON on disk this session |
 
 ## Blocking — human with a browser
