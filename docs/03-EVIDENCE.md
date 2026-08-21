@@ -162,8 +162,8 @@ Then the sentence that does the work:
 
 > This tool produces evidence for 23 of the 55 WCAG 2.2 A/AA success criteria and can
 > certify none of them. Two of those 23 come from interaction probes a static DOM scanner
-> cannot perform. The remaining 32 require a human, and `ratchet manual` will generate you
-> a checklist for them.
+> cannot perform. The remaining 32 require a human, and `a11y-ratchet manual` will generate
+> you a checklist for them.
 
 **Experimental rules.** Tag-based `runOnly` overrides a rule's own `enabled: false`
 (D17), so `css-orientation-lock` (1.3.4) and `label-content-name-mismatch` (2.5.3) run

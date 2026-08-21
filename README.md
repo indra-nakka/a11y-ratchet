@@ -1,9 +1,9 @@
 # a11y-ratchet
 
-> **Status: pre-release, Day 12 of a 15-day build.** Scan, diff, baseline lifecycle, the
-> HTML/JSON/terminal reports and the GitHub Action are functional and tested — the manual
-> checklist (`a11y-ratchet manual`) is the one remaining stub. Sections marked `TODO(Day N)`
-> contain no data yet and must not be filled in with estimates. See
+> **Status: pre-release, Day 14 of a 15-day build.** Feature-frozen since Day 13. Scan,
+> diff, baseline lifecycle, the HTML/JSON/terminal reports, `manual`, and the GitHub Action
+> are functional and tested; no stubs remain in `src/`. The section marked `TODO(Day 14–15)`
+> contains no data yet and must not be filled in with estimates. See
 > [`docs/00-BRIEF-AND-PLAN.md`](docs/00-BRIEF-AND-PLAN.md) for the plan.
 
 Crawls a site, runs [axe-core](https://github.com/dequelabs/axe-core) and keyboard-interaction
@@ -24,8 +24,6 @@ npx a11y-ratchet scan https://example.com --max-depth 2 --out head.json
 npx a11y-ratchet diff .a11y/baseline.json head.json --html report.html
 ```
 
-> `TODO(Day 13)` — verify from a clean machine before publishing.
-
 <!-- TODO(Day 11): screenshot of the HTML report and the CI job summary -->
 
 ## Coverage
@@ -38,16 +36,18 @@ WCAG 2.2 has 86 success criteria; an AA conformance claim covers the 55 at Level
 |---|---:|---|
 | Detectable | 4 | 1.4.3 · 2.4.2 · 3.1.1 · 4.1.2 |
 | Probe (this tool, not axe) | 2 | 2.1.2 · 2.4.11 |
-| Partial | 20 | narrow subclass caught; most real failures invisible |
-| Manual only | 29 | no meaningful automated signal |
-| **Any automated signal** | **26** | **47% of A/AA** |
+| Partial | 17 | narrow subclass caught; most real failures invisible |
+| Manual only | 32 | no meaningful automated signal |
+| **Any automated signal** | **23** | **42% of A/AA** |
 | **Certifiable** | **0** | — |
 
 <!-- /GENERATED:coverage -->
 
-This tool produces evidence for 26 of the 55 A/AA criteria and can certify none of them.
-Two of those 26 come from interaction probes a static DOM scanner cannot perform. The
-remaining 29 require a human — `a11y-ratchet manual` will generate you a checklist.
+<!-- GENERATED:coverage-sentence -->
+This tool produces evidence for 23 of the 55 A/AA criteria and can certify none of them.
+2 of those 23 come from interaction probes a static DOM scanner cannot perform. The
+remaining 32 require a human — `a11y-ratchet manual` will generate you a checklist.
+<!-- /GENERATED:coverage-sentence -->
 
 Full matrix: [`docs/03-EVIDENCE.md`](docs/03-EVIDENCE.md#part-1--wcag-22-coverage-matrix).
 
@@ -70,7 +70,9 @@ screen reader. Concretely — all of these pass every automated check and fail W
 
 **The state problem.** This tool sees each page as it first renders. Modals, dropdowns,
 validation errors, loading states, and toasts are never scanned — and in most applications
-that is where the serious defects live. Interaction states are a v2 feature.
+that is where the serious defects live. Scanning them requires driving the application,
+which produces a non-deterministic page set — and a diff over a non-deterministic page set
+reports regressions that are only a different traversal.
 
 **Other boundaries.** Chromium only. No screen reader is involved at any point. Closed
 shadow roots are unreachable and are reported as `probe-blind` rather than as zero findings.
@@ -146,15 +148,17 @@ separate is the point.
 Suppressions require a justification, an owner, and an expiry. `a11y-ratchet check-config` exits
 non-zero on expired entries, so a suppression is a dated decision rather than a mute button.
 
-```ts
-// a11y-ratchet.config.ts
+```javascript
+// a11y-ratchet.config.js
+/** @type {import('a11y-ratchet').Config} */
 export default {
   mode: 'ci',
   suppressions: [{
     id: 'stripe-iframe-contrast',
     rule: 'color-contrast',
     urlPattern: '/checkout*',
-    category: 'third-party',          // false-positive | accepted-risk | third-party
+    // false-positive | accepted-risk | third-party | deferred
+    category: 'third-party',
     reason: 'Inside Stripe Elements iframe; not ours to fix. Raised as Stripe #12345.',
     owner: '@you',
     expires: '2026-12-01',
@@ -179,7 +183,7 @@ a missing or stale baseline fails the job and prints the exact command to run lo
     baseline: .a11y/baseline.json   # default
     max-depth: 2                    # default
     mode: ci                        # default; audit allows third-party requests
-    # config: a11y-ratchet.config.ts
+    # config: a11y-ratchet.config.js
     # allow-engine-drift: true      # only while a baseline-regenerating PR is in flight
 ```
 
@@ -265,8 +269,8 @@ If you need commercial support and guided manual testing, buy axe DevTools Pro.
 
 ## Roadmap
 
-Focus-visible (2.4.7), tab-order (2.4.3) and off-screen-focus probes · interaction states
-via user-supplied scripts · `--repeat` instability detection · cross-page consistency
+Focus-visible (2.4.7), tab-order (2.4.3) and off-screen-focus probes · `--repeat`
+instability detection · cross-page consistency
 checks (3.2.3/3.2.4/3.2.6) · report filters · non-Chromium engines · full page-error
 classification (`http-error`, `probe-failed` and `page-crashed` are typed but never
 produced yet — an HTTP error response, a probe crash independent of navigation, and a
