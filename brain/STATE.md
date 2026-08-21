@@ -6,21 +6,26 @@
 
 ## Next action
 
-> **External review remediation, task 6** — identity duplication assessment
-> (`src/scan/probes/focusPath.ts` re-implements a subset of `src/scan/axe.ts`'s candidate
-> extraction, `docs/DECISIONS.md` D62). **Write an assessment only, no code**: can the two
-> be reconciled behind a single string-serialised helper injected once per page, what does
-> it cost, what's the blast radius on the golden-pairs suite. If "yes and it's contained,"
-> propose it as a post-1.0 Roadmap item rather than doing it under freeze. Tasks 1-5 done.
+> **External review remediation, task 7** — two questions, answers only, no code: (1) in
+> `src/diff/match.ts`, is a candidate pair with no accessible name on either side maxing
+> out at exactly `DEFAULT_MATCH_THRESHOLD` (0.65) deliberate Tier-5 conservatism or a
+> weights-summing-to-1.0 artifact — check the tests and D45 before answering; (2) is
+> `checkObscured`'s all-five-points-covered requirement (correct for 2.4.11 Minimum) known
+> not to extend to 2.4.12, anywhere in `docs/03-EVIDENCE.md` or the Roadmap — if not, say
+> so. Tasks 1-6 done.
 >
-> **Task 5 done, commits `bbee8c9`/`60ab947`.** `probe/keyboard-trap` now tries Escape,
-> then Shift+Tab, before reporting a cycle as a trap — D67's cycle predicate itself is
-> unchanged, this only gates what happens between detection and reporting. Needed two
-> attempts at "did it actually escape": comparing against a single stashed element failed
-> against the EXISTING escape-less fixture once the new escapable one was added alongside
-> it (its own handler intercepts Shift+Tab too, bouncing between its two fields — caught by
-> running the suite, not by re-reading the logic). Fixed by comparing against
-> `state.visited` instead. `docs/DECISIONS.md` D97. Full suite 361/361.
+> **Task 6 done, commits `e4619a0`/`22272b6`.** Write-only assessment (no `src/` changes,
+> as instructed): can `axe.ts`/`focusPath.ts`'s duplicated identity extraction (D62) be
+> unified behind one injected-once-per-page helper. Answer wasn't a clean "yes and
+> contained" — the mechanism is sound (direct precedent: `axe.ts` already injects
+> `AXE_SOURCE` the same way) and the cost is moderate, but `golden-pairs.test.ts`'s blast
+> radius being small is misleading, not reassuring: that suite never exercises probe-finding
+> identity at all, so its silence isn't evidence unification would be safe on that side.
+> Demonstrated, not just argued: D96 (task 4) fixed the wrapper-div bug in `axe.ts` only:
+> `focusPath.ts`'s own copy of `buildSemanticPath` still has it, confirmed by reading the
+> code, recorded as `BUGS.md` B10 rather than silently left for someone to rediscover.
+> Proposed as a two-phase Roadmap item (fixtures first, unification second, gated on the
+> first) rather than a single "unify these" line.
 >
 > R3 (human verification in a browser) is still the separate, still-open blocker
 > underneath all of this — unaffected by the review remediation work. See below.
@@ -97,6 +102,19 @@
   rather than adding a new file; tightened the existing test's assertion, which would have
   passed even with the escape check silently broken. Confirmed via `git stash` that the
   tightened assertion fails without the fix. Full suite 361/361. `docs/DECISIONS.md` D97.
+- **Task 6 — identity-duplication assessment, done, commits `e4619a0`/`22272b6`.**
+  Write-only, no `src/` changes. Quantified the duplication for real (222 lines in
+  `axe.ts`, 182 in `focusPath.ts`, confirmed by `grep`, not re-quoting D62's estimate).
+  Mechanism for unifying is sound — `page.addScriptTag`-once-per-frame, the same pattern
+  `axe.ts` already uses for `AXE_SOURCE` itself. Cost is moderate (a third build output,
+  frame-injection integration, the "every evaluate function is self-contained" rule
+  stops being universally true). The one thing actually asked — blast radius on
+  `golden-pairs.test.ts` — is small, but said plainly that's misleading: that suite never
+  touches probe-finding identity, so its silence isn't safety, it's a gap. Proved the
+  gap is real, not hypothetical: `focusPath.ts`'s own `buildSemanticPath` still has the
+  wrapper-div bug D96 fixed in `axe.ts` only, confirmed by reading the code — `BUGS.md`
+  B10. Proposed as a two-phase Roadmap item (probe-focused fixtures, then unification
+  gated on them existing), not a single "unify these" line.
 
 ## Prior session (2026-08-21): R0, R1, R2, R6 done
 
