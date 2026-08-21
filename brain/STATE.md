@@ -6,11 +6,13 @@
 
 ## Next action
 
-> **External review remediation, task 3** — `NotImplementedError` at `src/index.ts:168`/
-> `:192` throws `'Day 11'`/`'Day 12'` as context; replace with something actionable for a
-> library consumer, same error type, same exit-code mapping. Tasks 1-2 done. Stopping and
-> reporting after each numbered task per the reviewer's explicit instruction, not running
-> ahead.
+> **External review remediation, task 4** — the demo PRs prove wiring, not the diff's
+> churn-resistance thesis. Build the churn-resistance demo on a branch (wholesale
+> `examples/demo-site/` refactor: wrapper divs, hash-renamed classes, DOM reordered where
+> it doesn't change visual order, same violations kept). Report the branch, the diff
+> output, and — if anything reclassified as `new` — which tier and why, **before opening
+> anything**. Tasks 1-3 done. Stopping and reporting after each numbered task per the
+> reviewer's explicit instruction, not running ahead.
 >
 > R3 (human verification in a browser) is still the separate, still-open blocker
 > underneath all of this — unaffected by the review remediation work. See below.
@@ -40,6 +42,15 @@
   unrelated annotation carried over from `a11y-demo.yml`'s own runs: a Node.js 20
   deprecation notice about the Actions runtime itself (not this project's `node-version:
   '20'` input) — not a failure, not introduced by this change, left alone.
+- **Task 3 — `NotImplementedError` messages, done, commit `181dd10`.** The class's second
+  constructor argument changed from `plannedDay` to `guidance` (same error type, same
+  exit code 3 — the reviewer's explicit constraint). `renderReport()`'s unreachable-format
+  branch now names the three real formats; `renderDiff()`'s `format: 'json'` case — the
+  one a real caller can actually hit, since `'json'` is a valid `ReportFormat` value this
+  function deliberately doesn't implement, per its own doc comment — now points at
+  `JSON.stringify(result, null, 2)`, matching what `diff --format json` already does on
+  the CLI. Verified both throw paths directly against the built `dist/index.js`, not just
+  by reading the diff.
 
 ## Prior session (2026-08-21): R0, R1, R2, R6 done
 
