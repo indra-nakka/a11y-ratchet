@@ -8,7 +8,7 @@
 
 > **External review remediation, task 2** — add `.github/workflows/ci.yml` (typecheck,
 > lint, test, build on push/PR; reuse `action.yml`'s Playwright cache-key approach; add the
-> status badge). Task 1 (Quickstart fix) is done, commit `<pending — see below>`. Working
+> status badge). Task 1 (Quickstart fix) is done, commit `359e34b`. Working
 > the list in order per the reviewer's explicit instruction; stopping and reporting after
 > each numbered task, not running ahead.
 >

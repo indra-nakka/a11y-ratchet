@@ -23,7 +23,7 @@ the Evidence column. "I think I did this" is not `done`.
 | T7 | Fix B4 — remove the v2 interaction-states promise | agent | R1.5 | done | commit `8178dc0` |
 | T8 | Fix B5 — bare `ratchet` in `03-EVIDENCE.md:165` | agent | R1.6 | done | commit `8178dc0` |
 | T9 | Re-run the `npx` clean-machine smoke, clear the Quickstart TODO | agent | R1.7 | superseded | commit `8178dc0` verified `npm install <tarball>` then `npx a11y-ratchet` — but `npx` resolves the locally-installed package first, so it never actually hit the registry. `registry.npmjs.org/a11y-ratchet` is a real 404; the README's literal `npx a11y-ratchet` fails for every reader who hasn't installed something first. Found by external review, fixed in T37. |
-| T37 | Fix the Quickstart: registry.npmjs.org/a11y-ratchet 404s, `npx a11y-ratchet` fails for a real reader | agent | external review #1 | done | commit pending — clone+`npm link` path, executed end to end against a fresh clone of the pushed repo |
+| T37 | Fix the Quickstart: registry.npmjs.org/a11y-ratchet 404s, `npx a11y-ratchet` fails for a real reader | agent | external review #1 | done | commit `359e34b` — clone+`npm link` path, executed end to end against a fresh clone of the pushed repo |
 | T10 | Backfill D91+ — Day 14 decisions | agent | R2 | done | commit `80cfaa6` — D91-D95, every figure re-derived from the raw run/diff JSON on disk this session |
 
 ## Blocking — human with a browser

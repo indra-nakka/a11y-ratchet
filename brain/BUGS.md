@@ -138,7 +138,7 @@ that shipped it the first time.
 
 ## B7 — the Quickstart's first command 404s for every real reader
 
-**Status:** fixed, commit `<pending>` · **Severity:** high — it's the first command in the
+**Status:** fixed, commit `359e34b` · **Severity:** high — it's the first command in the
 README · **File:** `README.md` Quickstart · **Found by:** external review, 2026-08-21
 
 `registry.npmjs.org/a11y-ratchet` returns 404 — the package has never been published (on
