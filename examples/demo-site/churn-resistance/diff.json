@@ -1,0 +1,304 @@
+{
+  "schemaVersion": "1.0",
+  "base": {
+    "runId": "e0ad6f7f-edae-4867-b1f6-d29213d206b9",
+    "startedAt": "2026-08-21T05:18:34.055Z",
+    "toolVersion": "0.1.0",
+    "axeCoreVersion": "4.13.0",
+    "mode": "ci"
+  },
+  "head": {
+    "runId": "d69f3eff-d922-4bef-b0fb-8089f3314688",
+    "startedAt": "2026-08-21T05:19:45.188Z",
+    "toolVersion": "0.1.0",
+    "axeCoreVersion": "4.13.0",
+    "mode": "ci"
+  },
+  "engineDrift": false,
+  "incompatibleRunConfig": [],
+  "pages": {
+    "inBoth": 1,
+    "onlyInBase": [],
+    "onlyInHead": [],
+    "errored": []
+  },
+  "findings": {
+    "new": [
+      {
+        "accessibleName": "",
+        "bestPractice": false,
+        "bucket": "violation",
+        "criteria": [
+          {
+            "id": "1.1.1",
+            "level": "A",
+            "since": "2.0",
+            "title": "Non-text Content",
+            "url": "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html"
+          }
+        ],
+        "fingerprint": "1a23ea38aad50ed7",
+        "groupKey": "bb677c444f4e5047",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/image-alt?application=axeAPI",
+        "html": "<img src=\"https://placehold.co/200x150?text=Priya\">",
+        "identity": {
+          "context": {
+            "headingContext": "amara osei",
+            "inFrame": [],
+            "nearestLandmark": "main"
+          },
+          "domDepth": 7,
+          "ordinal": 0,
+          "value": "main > div > div > div > img"
+        },
+        "identityTier": 4,
+        "impact": "critical",
+        "remediation": "Add an alt attribute describing what the image conveys, or alt=\"\" if it is purely decorative.",
+        "ruleId": "image-alt",
+        "selector": "._4d1e77b2:nth-child(3) > img",
+        "source": "axe",
+        "tags": [
+          "cat.text-alternatives",
+          "wcag2a",
+          "wcag111",
+          "section508",
+          "section508.22.a",
+          "TTv5",
+          "TT7.a",
+          "TT7.b",
+          "EN-301-549",
+          "EN-9.1.1.1",
+          "ACT",
+          "RGAAv4",
+          "RGAA-1.1.1"
+        ],
+        "templateKey": "1d86b8e43f6e3660",
+        "url": "http://127.0.0.1:4173/",
+        "urlTemplate": "/"
+      }
+    ],
+    "fixed": [
+      {
+        "accessibleName": "",
+        "bestPractice": false,
+        "bucket": "violation",
+        "criteria": [
+          {
+            "id": "1.1.1",
+            "level": "A",
+            "since": "2.0",
+            "title": "Non-text Content",
+            "url": "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html"
+          }
+        ],
+        "fingerprint": "d0af2fa98ece1322",
+        "groupKey": "97b2c403d9d639d5",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/image-alt?application=axeAPI",
+        "html": "<img src=\"https://placehold.co/200x150?text=Amara\">",
+        "identity": {
+          "context": {
+            "headingContext": "this term's officers",
+            "inFrame": [],
+            "nearestLandmark": "main"
+          },
+          "domDepth": 5,
+          "ordinal": 0,
+          "value": "main > div > div > img"
+        },
+        "identityTier": 4,
+        "impact": "critical",
+        "remediation": "Add an alt attribute describing what the image conveys, or alt=\"\" if it is purely decorative.",
+        "ruleId": "image-alt",
+        "selector": ".member:nth-child(1) > img",
+        "source": "axe",
+        "tags": [
+          "cat.text-alternatives",
+          "wcag2a",
+          "wcag111",
+          "section508",
+          "section508.22.a",
+          "TTv5",
+          "TT7.a",
+          "TT7.b",
+          "EN-301-549",
+          "EN-9.1.1.1",
+          "ACT",
+          "RGAAv4",
+          "RGAA-1.1.1"
+        ],
+        "templateKey": "07bc1e3a891003ad",
+        "url": "http://127.0.0.1:4173/",
+        "urlTemplate": "/"
+      }
+    ],
+    "persisting": [
+      {
+        "accessibleName": "© # riverside robotics club. this is a demo page for the a#y-ratchet github acti",
+        "bestPractice": false,
+        "bucket": "violation",
+        "criteria": [
+          {
+            "id": "1.4.3",
+            "level": "AA",
+            "since": "2.0",
+            "title": "Contrast (Minimum)",
+            "url": "https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html"
+          }
+        ],
+        "fingerprint": "98cd3087e2cdace2",
+        "groupKey": "8bd2c7de7348bb9d",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=axeAPI",
+        "html": "<p>© 2026 Riverside Robotics Club. This is a demo page for the a11y-ratchet GitHub Action.</p>",
+        "identity": {
+          "context": {
+            "headingContext": "join us",
+            "inFrame": [],
+            "nearestLandmark": "contentinfo"
+          },
+          "domDepth": 4,
+          "ordinal": 0,
+          "textContent": "© # riverside robotics club. this is a demo page for the a#y-ratchet github acti",
+          "value": "© # riverside robotics club. this is a demo page for the a#y-ratchet github acti"
+        },
+        "identityTier": 3,
+        "impact": "serious",
+        "remediation": "Darken the text or lighten the background until the ratio reaches 4.5:1 (3:1 for large/bold text) — check against the actual rendered colours, not the design file.",
+        "ruleId": "color-contrast",
+        "selector": "footer > p",
+        "source": "axe",
+        "tags": [
+          "cat.color",
+          "wcag2aa",
+          "wcag143",
+          "TTv5",
+          "TT13.c",
+          "EN-301-549",
+          "EN-9.1.4.3",
+          "ACT",
+          "RGAAv4",
+          "RGAA-3.2.1"
+        ],
+        "templateKey": "b5e0239971834d72",
+        "url": "http://127.0.0.1:4173/",
+        "urlTemplate": "/"
+      }
+    ],
+    "unclassified": [],
+    "moved": [
+      {
+        "from": {
+          "accessibleName": "",
+          "bestPractice": false,
+          "bucket": "violation",
+          "criteria": [
+            {
+              "id": "1.1.1",
+              "level": "A",
+              "since": "2.0",
+              "title": "Non-text Content",
+              "url": "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html"
+            }
+          ],
+          "fingerprint": "e2536381165dbb11",
+          "groupKey": "97b2c403d9d639d5",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/image-alt?application=axeAPI",
+          "html": "<img src=\"https://placehold.co/200x150?text=Priya\">",
+          "identity": {
+            "context": {
+              "headingContext": "devon ruiz",
+              "inFrame": [],
+              "nearestLandmark": "main"
+            },
+            "domDepth": 5,
+            "ordinal": 0,
+            "value": "main > div > div > img"
+          },
+          "identityTier": 4,
+          "impact": "critical",
+          "remediation": "Add an alt attribute describing what the image conveys, or alt=\"\" if it is purely decorative.",
+          "ruleId": "image-alt",
+          "selector": ".member:nth-child(3) > img",
+          "source": "axe",
+          "tags": [
+            "cat.text-alternatives",
+            "wcag2a",
+            "wcag111",
+            "section508",
+            "section508.22.a",
+            "TTv5",
+            "TT7.a",
+            "TT7.b",
+            "EN-301-549",
+            "EN-9.1.1.1",
+            "ACT",
+            "RGAAv4",
+            "RGAA-1.1.1"
+          ],
+          "templateKey": "07bc1e3a891003ad",
+          "url": "http://127.0.0.1:4173/",
+          "urlTemplate": "/"
+        },
+        "to": {
+          "accessibleName": "",
+          "bestPractice": false,
+          "bucket": "violation",
+          "criteria": [
+            {
+              "id": "1.1.1",
+              "level": "A",
+              "since": "2.0",
+              "title": "Non-text Content",
+              "url": "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html"
+            }
+          ],
+          "fingerprint": "02ab780ab870b86c",
+          "groupKey": "bb677c444f4e5047",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/image-alt?application=axeAPI",
+          "html": "<img src=\"https://placehold.co/200x150?text=Amara\">",
+          "identity": {
+            "context": {
+              "headingContext": "devon ruiz",
+              "inFrame": [],
+              "nearestLandmark": "main"
+            },
+            "domDepth": 7,
+            "ordinal": 0,
+            "value": "main > div > div > div > img"
+          },
+          "identityTier": 4,
+          "impact": "critical",
+          "remediation": "Add an alt attribute describing what the image conveys, or alt=\"\" if it is purely decorative.",
+          "ruleId": "image-alt",
+          "selector": "._4d1e77b2:nth-child(2) > img",
+          "source": "axe",
+          "tags": [
+            "cat.text-alternatives",
+            "wcag2a",
+            "wcag111",
+            "section508",
+            "section508.22.a",
+            "TTv5",
+            "TT7.a",
+            "TT7.b",
+            "EN-301-549",
+            "EN-9.1.1.1",
+            "ACT",
+            "RGAAv4",
+            "RGAA-1.1.1"
+          ],
+          "templateKey": "1d86b8e43f6e3660",
+          "url": "http://127.0.0.1:4173/",
+          "urlTemplate": "/"
+        }
+      }
+    ],
+    "impactChanged": [],
+    "unknown": []
+  },
+  "gate": {
+    "passed": false,
+    "reason": "1 new template defect (1 instance) on 1 page (1.1.1); 1 moved template (1 instance); 1 fixed template (1 instance).",
+    "countedAgainstGate": 1,
+    "warnings": []
+  }
+}

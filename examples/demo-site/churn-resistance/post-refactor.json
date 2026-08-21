@@ -1,0 +1,383 @@
+{
+  "findings": [
+    {
+      "accessibleName": "",
+      "bestPractice": false,
+      "bucket": "violation",
+      "criteria": [
+        {
+          "id": "1.1.1",
+          "level": "A",
+          "since": "2.0",
+          "title": "Non-text Content",
+          "url": "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html"
+        }
+      ],
+      "fingerprint": "02ab780ab870b86c",
+      "groupKey": "bb677c444f4e5047",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/image-alt?application=axeAPI",
+      "html": "<img src=\"https://placehold.co/200x150?text=Amara\">",
+      "identity": {
+        "context": {
+          "headingContext": "devon ruiz",
+          "inFrame": [],
+          "nearestLandmark": "main"
+        },
+        "domDepth": 7,
+        "ordinal": 0,
+        "value": "main > div > div > div > img"
+      },
+      "identityTier": 4,
+      "impact": "critical",
+      "remediation": "Add an alt attribute describing what the image conveys, or alt=\"\" if it is purely decorative.",
+      "ruleId": "image-alt",
+      "selector": "._4d1e77b2:nth-child(2) > img",
+      "source": "axe",
+      "tags": [
+        "cat.text-alternatives",
+        "wcag2a",
+        "wcag111",
+        "section508",
+        "section508.22.a",
+        "TTv5",
+        "TT7.a",
+        "TT7.b",
+        "EN-301-549",
+        "EN-9.1.1.1",
+        "ACT",
+        "RGAAv4",
+        "RGAA-1.1.1"
+      ],
+      "templateKey": "1d86b8e43f6e3660",
+      "url": "http://127.0.0.1:4173/",
+      "urlTemplate": "/"
+    },
+    {
+      "accessibleName": "",
+      "bestPractice": false,
+      "bucket": "violation",
+      "criteria": [
+        {
+          "id": "1.1.1",
+          "level": "A",
+          "since": "2.0",
+          "title": "Non-text Content",
+          "url": "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html"
+        }
+      ],
+      "fingerprint": "1a23ea38aad50ed7",
+      "groupKey": "bb677c444f4e5047",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/image-alt?application=axeAPI",
+      "html": "<img src=\"https://placehold.co/200x150?text=Priya\">",
+      "identity": {
+        "context": {
+          "headingContext": "amara osei",
+          "inFrame": [],
+          "nearestLandmark": "main"
+        },
+        "domDepth": 7,
+        "ordinal": 0,
+        "value": "main > div > div > div > img"
+      },
+      "identityTier": 4,
+      "impact": "critical",
+      "remediation": "Add an alt attribute describing what the image conveys, or alt=\"\" if it is purely decorative.",
+      "ruleId": "image-alt",
+      "selector": "._4d1e77b2:nth-child(3) > img",
+      "source": "axe",
+      "tags": [
+        "cat.text-alternatives",
+        "wcag2a",
+        "wcag111",
+        "section508",
+        "section508.22.a",
+        "TTv5",
+        "TT7.a",
+        "TT7.b",
+        "EN-301-549",
+        "EN-9.1.1.1",
+        "ACT",
+        "RGAAv4",
+        "RGAA-1.1.1"
+      ],
+      "templateKey": "1d86b8e43f6e3660",
+      "url": "http://127.0.0.1:4173/",
+      "urlTemplate": "/"
+    },
+    {
+      "accessibleName": "© # riverside robotics club. this is a demo page for the a#y-ratchet github acti",
+      "bestPractice": false,
+      "bucket": "violation",
+      "criteria": [
+        {
+          "id": "1.4.3",
+          "level": "AA",
+          "since": "2.0",
+          "title": "Contrast (Minimum)",
+          "url": "https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html"
+        }
+      ],
+      "fingerprint": "98cd3087e2cdace2",
+      "groupKey": "8bd2c7de7348bb9d",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=axeAPI",
+      "html": "<p>© 2026 Riverside Robotics Club. This is a demo page for the a11y-ratchet GitHub Action.</p>",
+      "identity": {
+        "context": {
+          "headingContext": "join us",
+          "inFrame": [],
+          "nearestLandmark": "contentinfo"
+        },
+        "domDepth": 4,
+        "ordinal": 0,
+        "textContent": "© # riverside robotics club. this is a demo page for the a#y-ratchet github acti",
+        "value": "© # riverside robotics club. this is a demo page for the a#y-ratchet github acti"
+      },
+      "identityTier": 3,
+      "impact": "serious",
+      "remediation": "Darken the text or lighten the background until the ratio reaches 4.5:1 (3:1 for large/bold text) — check against the actual rendered colours, not the design file.",
+      "ruleId": "color-contrast",
+      "selector": "footer > p",
+      "source": "axe",
+      "tags": [
+        "cat.color",
+        "wcag2aa",
+        "wcag143",
+        "TTv5",
+        "TT13.c",
+        "EN-301-549",
+        "EN-9.1.4.3",
+        "ACT",
+        "RGAAv4",
+        "RGAA-3.2.1"
+      ],
+      "templateKey": "b5e0239971834d72",
+      "url": "http://127.0.0.1:4173/",
+      "urlTemplate": "/"
+    }
+  ],
+  "groups": {
+    "8bd2c7de7348bb9d": {
+      "accessibleName": "© # riverside robotics club. this is a demo page for the a#y-ratchet github acti",
+      "bestPractice": false,
+      "bucket": "violation",
+      "criteria": [
+        {
+          "id": "1.4.3",
+          "level": "AA",
+          "since": "2.0",
+          "title": "Contrast (Minimum)",
+          "url": "https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html"
+        }
+      ],
+      "exampleSelector": "footer > p",
+      "fingerprints": [
+        "98cd3087e2cdace2"
+      ],
+      "groupKey": "8bd2c7de7348bb9d",
+      "impact": "serious",
+      "pageCount": 1,
+      "ruleId": "color-contrast",
+      "source": "axe",
+      "uniqueElementCount": 1,
+      "urls": [
+        "http://127.0.0.1:4173/"
+      ]
+    },
+    "bb677c444f4e5047": {
+      "accessibleName": "",
+      "bestPractice": false,
+      "bucket": "violation",
+      "criteria": [
+        {
+          "id": "1.1.1",
+          "level": "A",
+          "since": "2.0",
+          "title": "Non-text Content",
+          "url": "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html"
+        }
+      ],
+      "exampleSelector": "._4d1e77b2:nth-child(2) > img",
+      "fingerprints": [
+        "02ab780ab870b86c",
+        "1a23ea38aad50ed7"
+      ],
+      "groupKey": "bb677c444f4e5047",
+      "impact": "critical",
+      "pageCount": 1,
+      "ruleId": "image-alt",
+      "source": "axe",
+      "uniqueElementCount": 2,
+      "urls": [
+        "http://127.0.0.1:4173/"
+      ]
+    }
+  },
+  "pages": [
+    {
+      "counts": {
+        "bestPractice": 0,
+        "needsReview": 0,
+        "suppressed": 0,
+        "violation": 3
+      },
+      "depth": 0,
+      "durationMs": 213,
+      "httpStatus": 200,
+      "probeBlindRegions": [],
+      "probesRun": true,
+      "settleDegraded": false,
+      "startedAt": "2026-08-21T05:19:45.346Z",
+      "title": "Riverside Robotics Club",
+      "url": "http://127.0.0.1:4173/",
+      "urlTemplate": "/"
+    }
+  ],
+  "run": {
+    "baseUrl": "http://127.0.0.1:4173/",
+    "blockedOrigins": [],
+    "bypassCSP": false,
+    "colorScheme": "light",
+    "concurrency": 3,
+    "configHash": "a5508fc09c585c6e",
+    "deviceScaleFactor": 1,
+    "durationMs": 726,
+    "id": "d69f3eff-d922-4bef-b0fb-8089f3314688",
+    "locale": "en-US",
+    "mode": "ci",
+    "probesEnabled": [
+      "probe/focus-obscured",
+      "probe/keyboard-trap"
+    ],
+    "reducedMotion": "reduce",
+    "settle": {
+      "fontsReadyCapMs": 3000,
+      "imageDecodeCapMs": 1500,
+      "quietCapMs": 2000,
+      "quietMs": 150,
+      "strategy": "default"
+    },
+    "startedAt": "2026-08-21T05:19:45.188Z",
+    "timezoneId": "UTC",
+    "viewport": {
+      "height": 800,
+      "width": 1280
+    }
+  },
+  "schemaVersion": "1.3",
+  "summary": {
+    "findings": {
+      "bestPractice": 0,
+      "byCriterion": {
+        "1.1.1": 2,
+        "1.4.3": 1
+      },
+      "byImpact": {
+        "critical": 2,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 1
+      },
+      "byLevel": {
+        "A": 2,
+        "AA": 1,
+        "AAA": 0
+      },
+      "byRule": {
+        "color-contrast": 1,
+        "image-alt": 2
+      },
+      "bySource": {
+        "axe": 3,
+        "probe": 0
+      },
+      "byTier": {
+        "1": 0,
+        "2": 0,
+        "3": 1,
+        "4": 2,
+        "5": 0
+      },
+      "needsReview": 0,
+      "suppressed": 0,
+      "total": 3,
+      "violation": 3
+    },
+    "groups": 2,
+    "pages": {
+      "errored": 0,
+      "scanned": 1,
+      "total": 1
+    },
+    "probeBlindRegions": 0,
+    "templateGroups": 2
+  },
+  "templateGroups": {
+    "1d86b8e43f6e3660": {
+      "bestPractice": false,
+      "bucket": "violation",
+      "criteria": [
+        {
+          "id": "1.1.1",
+          "level": "A",
+          "since": "2.0",
+          "title": "Non-text Content",
+          "url": "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html"
+        }
+      ],
+      "exampleSelector": "._4d1e77b2:nth-child(2) > img",
+      "fingerprints": [
+        "02ab780ab870b86c",
+        "1a23ea38aad50ed7"
+      ],
+      "groupKeys": [
+        "bb677c444f4e5047"
+      ],
+      "impact": "critical",
+      "instanceCount": 2,
+      "pageCount": 1,
+      "ruleId": "image-alt",
+      "source": "axe",
+      "templateKey": "1d86b8e43f6e3660",
+      "urls": [
+        "http://127.0.0.1:4173/"
+      ]
+    },
+    "b5e0239971834d72": {
+      "bestPractice": false,
+      "bucket": "violation",
+      "criteria": [
+        {
+          "id": "1.4.3",
+          "level": "AA",
+          "since": "2.0",
+          "title": "Contrast (Minimum)",
+          "url": "https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html"
+        }
+      ],
+      "exampleSelector": "footer > p",
+      "fingerprints": [
+        "98cd3087e2cdace2"
+      ],
+      "groupKeys": [
+        "8bd2c7de7348bb9d"
+      ],
+      "impact": "serious",
+      "instanceCount": 1,
+      "pageCount": 1,
+      "ruleId": "color-contrast",
+      "source": "axe",
+      "templateKey": "b5e0239971834d72",
+      "urls": [
+        "http://127.0.0.1:4173/"
+      ]
+    }
+  },
+  "tool": {
+    "axeCoreVersion": "4.13.0",
+    "browser": "chromium",
+    "browserVersion": "151.0.7922.34",
+    "name": "a11y-ratchet",
+    "playwrightVersion": "1.62.1",
+    "version": "0.1.0"
+  }
+}
