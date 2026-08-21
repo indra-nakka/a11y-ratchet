@@ -252,7 +252,13 @@ matters because `DECISIONS.md` is published and is part of the artifact's argume
 14 is the day measurement killed three hypotheses in a row.
 
 Append D91 onward, following the existing entry format exactly (read D86–D90 first for
-house style). Source material is §9 of the session export. Cover, at minimum:
+house style). **Correction, found 2026-08-21:** this section originally said "source
+material is §9 of the session export," but no `SESSION-EXPORT.md` exists anywhere in this
+repo. D91-D95 (done, commit `80cfaa6`) were written instead directly from the raw run/diff
+JSON left in that session's own scratchpad — primary data, not a secondhand summary. If
+that JSON is gone by the time this is read again, the committed `audit/2026-08-20/` TSVs
+and README, plus D91-D95 themselves, are what's left; treat anything not re-derivable from
+those as `reported, not re-derived`. Cover, at minimum:
 
 | Topic | Substance |
 |---|---|

@@ -23,7 +23,7 @@ the Evidence column. "I think I did this" is not `done`.
 | T7 | Fix B4 — remove the v2 interaction-states promise | agent | R1.5 | done | commit `8178dc0` |
 | T8 | Fix B5 — bare `ratchet` in `03-EVIDENCE.md:165` | agent | R1.6 | done | commit `8178dc0` |
 | T9 | Re-run the `npx` clean-machine smoke, clear the Quickstart TODO | agent | R1.7 | done | commit `8178dc0` — `npm pack`, fresh install in a temp dir outside the repo, all three Quickstart commands run via `npx a11y-ratchet` against a live site |
-| T10 | Backfill D91+ — Day 14 decisions | agent | R2 | todo | |
+| T10 | Backfill D91+ — Day 14 decisions | agent | R2 | done | commit `80cfaa6` — D91-D95, every figure re-derived from the raw run/diff JSON on disk this session |
 
 ## Blocking — human with a browser
 

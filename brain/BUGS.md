@@ -140,7 +140,7 @@ that shipped it the first time.
 
 | Item | Note |
 |---|---|
-| `docs/DECISIONS.md` ends at D90 | Day 14 unrecorded. `RUNBOOK.md` R2. |
+| ~~`docs/DECISIONS.md` ends at D90~~ | Fixed, commit `80cfaa6` — D91-D95 backfilled. |
 | Settle contract layout-stability gap | 150ms mutation quiet misses a third-party iframe landing after the quiet window. Roadmap, not a v1 fix. |
 | `checks[].data` discarded at normalise | Loses `fgColor`/`bgColor`/`contrastRatio`/`messageKey`. Roadmap. |
 | `PageErrorKind` `probe-failed` / `page-crashed` | Typed but never produced. Already in the README roadmap. |

@@ -6,8 +6,9 @@
 
 ## Next action
 
-> **R2 in `RUNBOOK.md`** — backfill Day 14 decisions into `docs/DECISIONS.md` (D91+).
-> No browser needed. No verdicts needed.
+> **R6 in `RUNBOOK.md`** — roadmap and remaining TODO sweep. No browser needed, no
+> verdicts needed. (R3/R4/R5 are next in the numbered sequence but R3 needs a human with
+> a browser; R6 doesn't depend on R3, so it runs now instead of waiting.)
 
 **R0 ran this session, confirmed:** last commit `ba9f1ca` at session start, tree clean (only
 `brain/` itself untracked — expected, not yet committed). Typecheck/tests/build all exit 0
@@ -124,8 +125,17 @@ came from an assistant reasoning confidently from text. Report findings, not ass
 
 ## Known-stale artifacts
 
-- `docs/DECISIONS.md` ends at **D90 (Day 13)**. Day 14 is unrecorded — see `RUNBOOK.md` R2.
-- The session reconstruction (`SESSION-EXPORT.md`) is organised for resumption, not a
-  byte-exact transcript. Treat its figures as leads to verify, not as source of truth.
+- ~~`docs/DECISIONS.md` ends at D90~~ — fixed, commit `80cfaa6` (D91-D95).
+- `brain/RUNBOOK.md` R2 cites a `SESSION-EXPORT.md` as Day 14's source material — **that
+  file does not exist anywhere in this repo**, confirmed by search this session. D91-D95
+  were written instead from the raw run/diff JSON still on disk in this session's own
+  scratchpad (paths were never committed — see `audit/2026-08-20/README.md`), which is
+  primary data, not a secondhand reconstruction. One specific claim from an earlier
+  in-session report (the `bgOverlap` race "resolving after ~2s") did not match the file
+  that was supposed to back it — the recorded `tAfterWait` was ~370ms, not ~2000ms as
+  intended — so it was re-measured live rather than shipped as remembered; D94 has the
+  corrected, re-verified numbers. If a future session is handed `RUNBOOK.md` R2 fresh, this
+  line should be updated or removed rather than re-pointing an agent at a file that isn't
+  there.
 - Doc edits made in an assistant workspace have failed to reach the repo before. Assume
   nothing synced; check the file.
