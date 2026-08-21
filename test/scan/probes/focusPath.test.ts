@@ -68,18 +68,24 @@ describe('focus-path probe', () => {
       expect(traps.length, 'the escape-less modal must produce at least one trap finding').toBeGreaterThan(0);
       expect(traps[0]?.bucket).toBe('needs-review');
       expect(traps[0]?.criteria.map((c) => c.id)).toEqual(['2.1.2']);
-      // The trap is inside #modal - whichever of its two elements the
-      // traversal happened to land the finding on, it must be one of them
-      // (id "modal-input" or "modal-save"), never the toolbar's buttons
-      // (which carry no id, only a data-align attribute) or the link after it.
-      expect(traps.every((f) => f.selector.includes('modal-'))).toBe(true);
+      // The trap is inside the escape-less #modal - whichever of its two
+      // elements the traversal happened to land the finding on, it must be
+      // one of them (id "modal-input" or "modal-save"). Explicitly NOT
+      // "modal-" generally: #modal-escapable's own ids also match that
+      // substring, and its whole point is that it must produce zero trap
+      // findings (D67, external review task 5) - a loose substring check
+      // here would pass even if the escape check were silently broken.
+      expect(traps.every((f) => f.selector === 'input#modal-input' || f.selector === 'button#modal-save')).toBe(true);
+      expect(traps.every((f) => !f.selector.includes('escapable'))).toBe(true);
       expect(traps.every((f) => !f.html.includes('data-align'))).toBe(true);
 
-      // No probe finding of ANY kind should be attributable to the toolbar
-      // or the link after it - the whole point of a correct roving-tabindex
-      // implementation is that plain Tab passes straight through.
+      // No probe finding of ANY kind should be attributable to the escapable
+      // modal, the toolbar, or the link after it - Escape genuinely gets a
+      // keyboard user out of #modal-escapable, and a correct roving-tabindex
+      // implementation lets plain Tab pass straight through the toolbar.
       const probeFindings = report.findings.filter((f) => f.source === 'probe');
       expect(probeFindings.every((f) => f.ruleId === KEYBOARD_TRAP_RULE_ID)).toBe(true);
+      expect(probeFindings.every((f) => !f.selector.includes('escapable'))).toBe(true);
       expect(probeFindings.every((f) => !f.html.includes('data-align'))).toBe(true);
     } finally {
       await stop();

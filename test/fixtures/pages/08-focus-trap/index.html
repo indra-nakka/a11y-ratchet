@@ -7,14 +7,28 @@
 
     <!--
       The focus-path probe's second detection (01 §6.3(b)/(c)): keyboard
-      trap (2.1.2). Two widgets, opposite expectations:
+      trap (2.1.2). Three widgets:
 
-        #modal        — open by default (so a pure Tab-only probe reaches it
-                        with no click needed), 2 focusable elements, and a
-                        keydown handler that wraps Tab at both ends with NO
-                        escape mechanism at all: no Escape handler, no close
+        #modal-escapable — open by default, Tab wraps at both ends exactly
+                        like #modal below, but a real Escape handler moves
+                        focus out to the marker link right after it. A
+                        Tab-only probe would see the same wrap #modal
+                        produces; the escape check (external review task 5,
+                        DECISIONS.md D67) must try Escape before concluding
+                        it's a trap and find that it isn't one.
+                        MUST NOT be flagged.
+
+        #modal        — open by default (reached right after the escapable
+                        one, so a pure Tab-only probe gets there with no
+                        click needed), 2 focusable elements, and a keydown
+                        handler that wraps Tab at both ends with NO escape
+                        mechanism at all: no Escape handler, no close
                         button. A genuine, uncontestable 2.1.2 violation.
-                        MUST be flagged.
+                        MUST be flagged. The probe stops here (a real trap
+                        ends the traversal), so #toolbar below is never
+                        reached in this same scan - kept anyway as the
+                        documented shape a correct roving-tabindex widget
+                        must have, exercised by not being reachable.
 
         #toolbar      — a correctly-implemented WAI-ARIA APG roving-tabindex
                         toolbar: exactly one button has tabindex="0" at a
@@ -41,6 +55,7 @@
         padding: 1.25rem 1rem;
       }
 
+      #modal-escapable,
       #modal {
         border: 2px solid #0b4f9e;
         padding: 1rem;
@@ -71,6 +86,18 @@
     <main>
       <h1>Profile setup</h1>
 
+      <!-- Open on load, on purpose - see the file-level comment. Escape moves
+           focus to #after-escapable, right after it. -->
+      <div id="modal-escapable" role="dialog" aria-modal="true" aria-labelledby="modal-escapable-title">
+        <h2 id="modal-escapable-title">Welcome back</h2>
+        <p>
+          <label for="modal-escapable-input">Search</label><br />
+          <input id="modal-escapable-input" type="text" />
+        </p>
+        <p><button id="modal-escapable-dismiss" type="button">Dismiss</button></p>
+      </div>
+      <p><a id="after-escapable" href="#after-escapable-target">After the escapable dialog</a></p>
+
       <!-- Open on load, on purpose - see the file-level comment. -->
       <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <h2 id="modal-title">Complete your profile</h2>
@@ -94,6 +121,32 @@
     </main>
 
     <script>
+      // #modal-escapable: wraps Tab at both ends exactly like #modal below -
+      // a Tab-only probe sees the identical cycle - but Escape moves focus
+      // to the marker link right after it. The one difference under test.
+      (function () {
+        var modal = document.getElementById('modal-escapable');
+        var focusables = modal.querySelectorAll('input, button');
+        var first = focusables[0];
+        var last = focusables[focusables.length - 1];
+        var afterLink = document.getElementById('after-escapable');
+        modal.addEventListener('keydown', function (event) {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            afterLink.focus();
+            return;
+          }
+          if (event.key !== 'Tab') return;
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
+        });
+      })();
+
       // #modal: deliberately no Escape handler and no close button - the
       // fixture's whole point is a trap with NO way out at all.
       (function () {

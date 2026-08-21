@@ -96,6 +96,13 @@ export async function runFocusPathProbe(page: Page, pageContext: PageContext): P
       // landing on the same element could in principle be a timing fluke;
       // two in a row pressing the SAME key is the real signal.
       if (consecutiveUnchanged >= 2 && step.snapshot) {
+        // D67, external review task 5: a cycle that Escape or Shift+Tab
+        // would exit is not a trap, even though plain Tab-only traversal
+        // can't see the way out. Checked before concluding, not assumed.
+        if (await tryEscape(page)) {
+          consecutiveUnchanged = 0;
+          continue; // escaped - resume normal forward traversal from here.
+        }
         candidates.push(buildTrapCandidate(step.snapshot));
         break; // nothing more to learn from a page that will not move focus.
       }
@@ -123,7 +130,12 @@ export async function runFocusPathProbe(page: Page, pageContext: PageContext): P
       // without having covered everything - is still a genuine trap
       // candidate, unconditionally, per the reasoning above.
       if (!isCleanTraversalWrap(step, snapshot.tabbableCount) && step.snapshot) {
+        // D67, external review task 5: same escape check as the `unchanged`
+        // branch above - a cycle that Escape or Shift+Tab exits is not a
+        // trap. On success, resume forward traversal instead of breaking.
+        if (await tryEscape(page)) continue;
         candidates.push(buildTrapCandidate(step.snapshot));
+        break;
       }
       break;
     }
@@ -147,6 +159,31 @@ export async function runFocusPathProbe(page: Page, pageContext: PageContext): P
   const findings = candidates.map((candidate, index) => buildFinding(candidate, assignments[index]!, pageContext));
 
   return { findings, blindRegions };
+}
+
+/**
+ * D67, external review task 5: before a stuck-or-cycling step counts as a
+ * genuine trap, try the two conventional keyboard escape routes - Escape
+ * (closes a modal/dropdown), then Shift+Tab (reverse tab order) if Escape
+ * alone didn't move focus. Invariant 3 (probes never gate) is unaffected
+ * either way: a real trap is still `needs-review`, never blocking; this
+ * only decides whether a Tab-only cycle that a documented escape modifier
+ * would exit gets reported at all.
+ *
+ * `checkEscapedInPage` decides "escaped" by checking whether the resulting
+ * element is already in `state.visited` - the same identity comparison
+ * `probeStepInPage` itself uses, against live element references never
+ * serialised across the Node/page boundary, not a string/selector
+ * comparison that could paper over a false match.
+ */
+async function tryEscape(page: Page): Promise<boolean> {
+  for (const key of ['Escape', 'Shift+Tab'] as const) {
+    await page.keyboard.press(key);
+    await page.evaluate(waitForScrollSettleInPage, { quietFrames: SCROLL_SETTLE_QUIET_FRAMES, capMs: SCROLL_SETTLE_CAP_MS });
+    const { escaped } = await page.evaluate(checkEscapedInPage);
+    if (escaped) return true;
+  }
+  return false;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -411,6 +448,32 @@ function waitForScrollSettleInPage(args: { quietFrames: number; capMs: number })
       }),
     );
   });
+}
+
+/**
+ * D67, external review task 5: did the last key press (Escape or
+ * Shift+Tab, pressed by `tryEscape` in Node) move focus to genuinely new
+ * ground? "Not already in `state.visited`" is the same signal
+ * `probeStepInPage` itself uses to recognise a cycle, reused here for the
+ * same reason: a trap that wraps `first` <-> `last` on Shift+Tab bounces
+ * to an element that IS already visited (the other end of the very trap
+ * under test), which must not read as an escape just because it differs
+ * from whichever single element the probe happened to be sitting on.
+ * Self-contained per this file's `page.evaluate` constraint, so the
+ * shadow-aware active-element walk is duplicated from `probeStepInPage`
+ * rather than shared.
+ */
+function checkEscapedInPage(): { escaped: boolean } {
+  const state = (window as unknown as { __a11yRatchetProbeState?: { visited: Element[] } }).__a11yRatchetProbeState;
+
+  let el: Element | null = document.activeElement;
+  while (el?.shadowRoot?.activeElement) {
+    el = el.shadowRoot.activeElement;
+  }
+
+  if (!el || el === document.body) return { escaped: true }; // left the document entirely
+  if (!state) return { escaped: true }; // no history to compare against - don't report a trap on an unconfirmed state
+  return { escaped: !state.visited.includes(el) };
 }
 
 function probeStepInPage(args: {
