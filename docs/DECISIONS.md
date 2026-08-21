@@ -2663,3 +2663,60 @@ accessible-name bug (`""===""` currently earns full credit, the same as a genuin
 name) is real and independently found while investigating this, but fixing it removes
 scoring headroom multiple existing behaviours currently depend on and needs its own
 rebalancing pass verified the same way this one was — not bundled in here.
+
+### D97. Trap-probe conservatism, against D67: Escape and Shift+Tab checked before a cycle counts as a trap
+
+External review task 5, a scoped freeze exception (the reviewer's own framing — the rest
+of the day's list is fix-in-place, this one line item is explicitly allowed to add
+behaviour). D67 stated the precise cycle predicate `probeStepInPage` uses: three
+conditions on the shadow-aware active element after a real `Tab` press. That predicate is
+unchanged today — this doesn't touch when a cycle is *detected*, only what happens between
+detection and reporting it as `probe/keyboard-trap`.
+
+**The gap D67 didn't cover:** a cycle Tab-only traversal can't escape from is exactly what
+the predicate is built to catch, but a cycle a *keyboard user* can escape from — via
+Escape (closing a modal/dropdown) or Shift+Tab (reverse tab order, the documented
+alternative when Tab-order escape needs a modifier) — reads identically to a genuine trap
+to a prober that only ever presses `Tab`. Combined with invariant 3 (probes never gate),
+2.1.2 findings nobody can act on erode trust in the one structural advantage this tool has
+over axe for that criterion.
+
+**Fix:** both places `runFocusPathProbe` was about to push a trap candidate — the
+`unchanged`-twice-confirmed branch and the `cycle`-not-a-clean-wrap branch — now call a
+new `tryEscape(page)` first. It presses `Escape`, then `Shift+Tab` if Escape alone didn't
+move focus, and checks after each whether focus landed somewhere genuinely new. On
+success, the loop `continue`s (resumes forward Tab traversal from wherever the escape
+landed) instead of reporting anything; on failure of both, the original code path runs
+unchanged. Invariant 3 itself is untouched either way — a genuine trap is still
+`needs-review`, `impact: 'critical'`, never gating; this only decides whether a Tab-only
+cycle with a real way out gets reported *at all*.
+
+**"Genuinely new" took two attempts to get right, verified against a real trap, not just
+reasoned about.** First design: compare the post-escape active element against a single
+stashed `state.stuckElement` reference. Failed immediately against the escape-less `#modal`
+fixture itself, once the new escapable fixture was added alongside it — `#modal`'s own
+keydown handler intercepts *both* forward and reverse Tab to wrap between its two fields,
+so `tryEscape`'s Shift+Tab attempt bounces `first` → `last`, a different element from
+whatever was stashed, and got wrongly read as "escaped." Fixed by comparing against
+`state.visited` instead (already-visited, not just not-identical) — the same signal
+`probeStepInPage` itself uses to recognise a cycle in the first place, reused here on
+purpose rather than inventing a second notion of "already seen." Caught by actually running
+the modified test suite, not by re-reading the logic more carefully — this is exactly the
+kind of interaction that inspection misses and execution catches.
+
+**Fixture and test, both extended, not new files:**
+`test/fixtures/pages/08-focus-trap/index.html` gained `#modal-escapable` — same
+wrap-both-ends Tab handler as the existing `#modal`, but with a real `Escape` handler that
+moves focus to a marker link right after it. Placed *before* `#modal` in document order, so
+one scan exercises both: the probe reaches the escapable modal first, confirms Escape gets
+it out, continues forward into the real trap, and correctly still flags that one. The
+existing test's assertion (`selector.includes('modal-')`) would have passed even if the
+escape check were silently broken, since `#modal-escapable`'s own ids also match that
+substring — tightened to check the exact expected selectors (`input#modal-input` /
+`button#modal-save`) and explicitly assert nothing with `escapable` in its selector was
+flagged. Verified via `git stash` (same discipline as D96): the tightened assertion fails
+against the un-fixed probe (`expected false to be true`) and passes with the fix.
+
+Full suite: 361/361, unchanged from D96's count — no new golden case needed here, since
+`golden-pairs.test.ts` tests identity/diff behaviour and this change is entirely upstream of
+that, inside probe detection itself.
