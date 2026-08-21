@@ -2805,3 +2805,31 @@ for the Roadmap as two ordered items, not one: (1) probe-focused identity/churn 
 fixtures — genuinely useful on their own, independent of whether unification ever happens,
 and the prerequisite for verifying it if it does; (2) the shared-injected-helper
 unification itself, gated on (1) existing. Neither attempted under freeze.
+
+### D99. External review task 7 — two questions, answered from the code and docs, not from memory
+
+**Q1: is `match.ts`'s 0.65 threshold exactly equalling a nameless pair's score ceiling
+deliberate Tier-5 conservatism, or a weights-summing-to-1.0 artifact?** Artifact, not
+deliberate. `0.35 + 0.25 + 0.20 + 0.10 + 0.10 = 1.0`, and `1.0 − 0.35` (the accessible-name
+weight) is exactly `0.65` — the threshold. Checked: no test in `match.test.ts` exercises
+this exact boundary (name absent, everything else identical); D45 says the threshold was
+kept at the doc's value "not re-tuned numerically" and never discusses this ceiling; D48/D49
+name the general problem but land at ~0.15-0.45, not 0.65, because their scenarios also
+change context. Real consequence, not just trivia: this ceiling is essentially unreachable
+by actual structural churn — any real change that reaches Pass 2 (Pass 1 already failed,
+so *something* about identity differs) commonly shifts `domDepth` too (a wrapper div, say),
+which drops the score below the ceiling and below threshold. Consistent with why D96 needed
+a path outside `scoreCandidate` entirely (`groupKey` equality) rather than a weight change.
+
+**Q2: is `checkObscured`'s all-five-points-covered requirement (correct for 2.4.11
+Minimum, not extensible to 2.4.12 Enhanced) documented anywhere?** No — confirmed by
+search, not assumed. `2.4.12` appears exactly once in the repo, in `03-EVIDENCE.md`'s list
+of the three 2.2 criteria outside A/AA scope; nowhere in the Roadmap, nowhere in
+`01-ARCHITECTURE.md §6.4` ("Known false positives — state these in code and README," which
+names 2.4.13 — an unrelated focus-indicator-adequacy concern — but not 2.4.12), nowhere in
+`checkObscured`'s own comment. `01-ARCHITECTURE.md` named the wrong adjacent boundary: 2.4.13
+is unrelated to occlusion; 2.4.12 is the direct AAA-strictness upgrade of the exact
+mechanism `checkObscured` already partially implements. The five-point-all-covered check is
+the right shape for "entirely hidden" (2.4.11); 2.4.12 ("no part hidden") needs the opposite
+threshold — any one point covered, not all five — a different check, not a superset of
+this one. Not fixed today; task 7 was answers only, no code.
