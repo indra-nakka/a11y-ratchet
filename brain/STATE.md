@@ -6,32 +6,36 @@
 
 ## Next action
 
-> **R6 in `RUNBOOK.md`** — roadmap and remaining TODO sweep. No browser needed, no
-> verdicts needed. (R3/R4/R5 are next in the numbered sequence but R3 needs a human with
-> a browser; R6 doesn't depend on R3, so it runs now instead of waiting.)
+> **R3 in `RUNBOOK.md`** — human verification in a browser. Everything agent-doable without
+> a browser or a verdict is done (R0, R1, R2, R6). Start with row 1 of
+> `audit/2026-08-20/verification-queue.tsv` (`brain/VERIFY.md` has the full protocol) —
+> `link-name` on `vuejs.org/about/team.html`, 268 instances, the strongest single result.
+>
+> Also human-blocked, not R3 but doable in the same sitting: the Esc-then-Tab test that
+> decides row 10 (`RUNBOOK.md` R3.5), and `BUGS.md` B6 (check whether GitHub's Actions run
+> page hides job summaries from logged-out viewers generally or just on this repo — needs
+> an actual signed-in look; a screenshot from that same look would close T23/T36).
+>
+> Once R3's verdicts land, R4 (precision) → R5 (README §6) are both agent work again.
 
-**R0 ran this session, confirmed:** last commit `ba9f1ca` at session start, tree clean (only
-`brain/` itself untracked — expected, not yet committed). Typecheck/tests/build all exit 0
-(39 test files pass). CLI has all 6 command groups, no stub commands. `npm run docs:coverage`
-printed to stdout only — confirmed by reading `scripts/coverage-report.mjs`: no
-`writeFileSync` call existed in it at all. It did not touch `README.md` or
-`docs/03-EVIDENCE.md` (`git diff` after running was empty). That was the exact B1 root
-cause, not a symptom of a half-implemented generator — the generator was never wired to a
-file.
+## This session (2026-08-21): R0, R1, R2, R6 done
 
-**R1 done this session, commit `8178dc0`.** Extended `scripts/coverage-report.mjs` to write
-both `README.md` and `docs/03-EVIDENCE.md` in place between their `GENERATED` markers,
-confirmed idempotent (second run, byte-identical output) and confirmed the regenerated
-README table matches `npm run docs:coverage`'s stdout output exactly. B1–B5 all fixed; see
-`BUGS.md`. Quickstart TODO re-verified live: `npm pack`, fresh install in a temp dir outside
-the repo, all three Quickstart commands run via `npx a11y-ratchet` against a live site,
-TODO line removed.
-
-**One nuance R1.3's literal check missed** (now corrected in `BUGS.md` B2): `grep -rn
-"NotImplemented" src/` returns 2 hits, not 0 — both are `never`-typed exhaustiveness guards
-in `src/index.ts` (`renderReport`/`renderDiff`), not unimplemented commands. Confirmed by
-reading the surrounding code: all format branches are implemented; the throw is unreachable
-dead code satisfying TS's exhaustiveness check. The banner fix itself was still correct.
+- **R0** — repo verified against every claim in this file before trusting it: last commit
+  at start `ba9f1ca`, tree clean, typecheck/test/build all exit 0, CLI has all 6 command
+  groups with no stubs, `docs:coverage` was print-only (the literal cause of B1).
+- **R1**, commit `8178dc0` — `scripts/coverage-report.mjs` now writes `README.md` and
+  `docs/03-EVIDENCE.md` in place between `GENERATED` markers (confirmed idempotent); B1-B5
+  fixed; Quickstart re-verified via a real `npm pack` + fresh-install + `npx` smoke test.
+- **R2**, commit `80cfaa6` — `docs/DECISIONS.md` D91-D95 backfilled for Day 14, every
+  figure re-derived from the raw run/diff JSON still on disk this session, not from
+  memory. Caught and corrected one own claim that didn't hold up under re-check (a settle
+  race said to "resolve after ~2s" — the file said ~370ms; re-measured live instead of
+  shipped as remembered). `RUNBOOK.md` R2 pointed at a `SESSION-EXPORT.md` that doesn't
+  exist in this repo — corrected in place.
+- **R6**, commit `adc3fb8` — Roadmap section completed (8 items added), every `TODO(` in
+  README/docs/action.yml swept. The HTML-report screenshot is real
+  (`docs/img/html-report.png`, from the ocw.mit.edu Day 14 data). The CI-job-summary
+  screenshot surfaced a real, unresolved finding instead of getting faked — see B6 below.
 
 ---
 
@@ -39,11 +43,8 @@ dead code satisfying TS's exhaustiveness check. The banner fix itself was still 
 
 `a11y-ratchet` — TypeScript CLI + library. Crawls with Playwright, runs axe-core plus
 keyboard-interaction probes, maps findings to WCAG 2.2, diffs two runs so CI can fail a PR
-on new violations.
-
-It is a portfolio / credibility artifact, not a market play. The value is demonstrated
-judgement: a published coverage boundary, probes that reach criteria axe structurally
-cannot, and a diff that does not report false regressions.
+on new violations. Portfolio / credibility artifact: the value is demonstrated judgement,
+not a market play.
 
 | | |
 |---|---|
@@ -52,23 +53,11 @@ cannot, and a diff that does not report false regressions.
 | Repo | `github.com/indra-nakka/a11y-ratchet`, public |
 | Version | 0.1.0 |
 | Pins | axe-core 4.13.0 exact · Playwright 1.62.1 exact · TS 5.9.3 · Chromium 151.0.7922.34 |
-| Demo PRs | #1 fails the gate, #2 passes — both live |
+| Demo PRs | #1 fails the gate, #2 passes — both live, but see B6 on logged-out visibility |
+| Last commit | `adc3fb8` |
 
-Verify all of the above against the repo before trusting it (`RUNBOOK.md` R0).
-
----
-
-## Blocked on a human with a browser
-
-**25 rows** in `audit/2026-08-20/verification-queue.tsv` need verdicts. Nothing downstream
-of them can proceed: README §6 "Real-world results", the precision figures, and the release
-tag all wait on this.
-
-Protocol with all 26 rows spelled out is in `brain/VERIFY.md`. Start with row 1,
-`link-name` on `vuejs.org/about/team.html` — 268 instances, the strongest single result.
-
-Also blocked on a browser: the Vue keyboard-trap issue cannot be filed until the
-**Esc-then-Tab** sequence is tested (`RUNBOOK.md` R3.5).
+Verify all of the above against the repo before trusting it (`RUNBOOK.md` R0) — this row
+included.
 
 ---
 
@@ -76,15 +65,16 @@ Also blocked on a browser: the Vue keyboard-trap issue cannot be filed until the
 
 | | Count | Where |
 |---|---|---|
-| Open bugs | 5 | `BUGS.md` |
-| Open tasks | see file | `TASKS.md` |
+| Open bugs | 1 (B6) — B1-B5 fixed this session | `BUGS.md` |
+| Open tasks | see file, `Now`/`Blocking` sections | `TASKS.md` |
 | Verification rows outstanding | 25 of 26 | `audit/2026-08-20/verification-queue.tsv` |
 
-Only **row 26** (the churn cluster) has an established verdict. The session record claimed a
-second — "the 6 nav-bar `bgOverlap` findings" — but the only `bgOverlap` row in the queue is
-row 18, which is `.link-text` on `/examples/`, 305 instances. Same axe messageKey, different
-element, different page. Row 18 needs verification. See the correction at the top of
-`brain/VERIFY.md`.
+Only **row 26** (the churn cluster) has an established verdict. A discarded pending
+suggestion in an earlier session's queue-construction pass claimed a second — "the 6
+nav-bar `bgOverlap` findings" — but the only `bgOverlap` row actually **in the queue** is
+row 18 (`.link-text` on `/examples/`, 305 instances, a different element and page from the
+live `/partners/` mechanism D94 documents). Row 18 still needs verification like every
+other unestablished row.
 
 ---
 
@@ -98,7 +88,7 @@ From `CLAUDE.md`, unchanged:
 3. Probes never gate CI. Default bucket `needs-review`.
 4. No false regressions. If identity is uncertain: `unclassified` or `moved`, never `new`.
 5. **Never hardcode a coverage count, recall figure, or percentage.** Generate from
-   `src/wcag/coverage.ts`.
+   `src/wcag/coverage.ts`. (Was violated in production — B1, fixed this session.)
 6. The tool never claims conformance.
 7. Tests never touch the network.
 8. `src/cli/` contains no logic.
@@ -108,8 +98,6 @@ Plus: report findings, not assumptions · flag doc contradictions rather than si
 complying · if a done-when isn't met, name which cut to take rather than pushing everything
 right.
 
-**Rule 5 has already been violated in production.** See `BUGS.md` B1.
-
 ---
 
 ## The verdict boundary
@@ -118,24 +106,14 @@ Neither an agent nor a human without a browser fills in a verification verdict. 
 `color-contrast` verdict needs rendered pixels; a `link-name` verdict needs an open
 accessibility tree.
 
-Four hypotheses about this codebase have already been killed by measurement. Three of them
-came from an assistant reasoning confidently from text. Report findings, not assumptions.
+Four hypotheses about this codebase were killed by measurement before this session; three
+more (D93, this session) came from an assistant reasoning from a stated hypothesis rather
+than checking it directly. Report findings, not assumptions — including about your own
+prior session's claims; see the settle-race correction above.
 
 ---
 
 ## Known-stale artifacts
 
-- ~~`docs/DECISIONS.md` ends at D90~~ — fixed, commit `80cfaa6` (D91-D95).
-- `brain/RUNBOOK.md` R2 cites a `SESSION-EXPORT.md` as Day 14's source material — **that
-  file does not exist anywhere in this repo**, confirmed by search this session. D91-D95
-  were written instead from the raw run/diff JSON still on disk in this session's own
-  scratchpad (paths were never committed — see `audit/2026-08-20/README.md`), which is
-  primary data, not a secondhand reconstruction. One specific claim from an earlier
-  in-session report (the `bgOverlap` race "resolving after ~2s") did not match the file
-  that was supposed to back it — the recorded `tAfterWait` was ~370ms, not ~2000ms as
-  intended — so it was re-measured live rather than shipped as remembered; D94 has the
-  corrected, re-verified numbers. If a future session is handed `RUNBOOK.md` R2 fresh, this
-  line should be updated or removed rather than re-pointing an agent at a file that isn't
-  there.
 - Doc edits made in an assistant workspace have failed to reach the repo before. Assume
   nothing synced; check the file.
