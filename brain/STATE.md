@@ -6,17 +6,21 @@
 
 ## Next action
 
-> **External review remediation, task 5** — trap-probe conservatism (scoped freeze
-> exception): teach `probe/keyboard-trap` to try Escape and Shift+Tab before a cycle
-> counts as a trap, keep the finding `needs-review` (invariant 3 unaffected), add fixture
-> coverage in `test/fixtures/pages/08-focus-trap/`, record against D67. Tasks 1-4 done.
+> **External review remediation, task 6** — identity duplication assessment
+> (`src/scan/probes/focusPath.ts` re-implements a subset of `src/scan/axe.ts`'s candidate
+> extraction, `docs/DECISIONS.md` D62). **Write an assessment only, no code**: can the two
+> be reconciled behind a single string-serialised helper injected once per page, what does
+> it cost, what's the blast radius on the golden-pairs suite. If "yes and it's contained,"
+> propose it as a post-1.0 Roadmap item rather than doing it under freeze. Tasks 1-5 done.
 >
-> **Task 4 landed as a real fix, not just a report** — the user said "fix now" after
-> seeing B8's raw result. Commits `7124b9f`/`9fddefb` on `main`; see `docs/DECISIONS.md`
-> D96 and `BUGS.md` B8 for the full trace. Re-running the actual demo against the fix
-> confirmed the gate now passes (0 new, 0 fixed) — not assumed from the golden suite alone.
-> One new, deliberately-deferred finding surfaced during the fix: `BUGS.md` B9 (a real but
-> separate scoring bug, needs its own rebalancing pass, not bundled in).
+> **Task 5 done, commits `bbee8c9`/`60ab947`.** `probe/keyboard-trap` now tries Escape,
+> then Shift+Tab, before reporting a cycle as a trap — D67's cycle predicate itself is
+> unchanged, this only gates what happens between detection and reporting. Needed two
+> attempts at "did it actually escape": comparing against a single stashed element failed
+> against the EXISTING escape-less fixture once the new escapable one was added alongside
+> it (its own handler intercepts Shift+Tab too, bouncing between its two fields — caught by
+> running the suite, not by re-reading the logic). Fixed by comparing against
+> `state.visited` instead. `docs/DECISIONS.md` D97. Full suite 361/361.
 >
 > R3 (human verification in a browser) is still the separate, still-open blocker
 > underneath all of this — unaffected by the review remediation work. See below.
@@ -79,6 +83,20 @@
   B9 (`scoreCandidate` credits two empty accessible names as a match — real, but fixing it
   removes scoring headroom other cases currently lean on; needs its own rebalancing pass
   with the same rigor, not a rushed patch).
+- **Task 5 — trap-probe conservatism, done, commits `bbee8c9`/`60ab947`.** Both trap-
+  candidate branches in `runFocusPathProbe` now call `tryEscape(page)` first: presses
+  Escape, then Shift+Tab if that alone didn't move focus, checks after each whether focus
+  landed on genuinely new ground before giving up and reporting a trap. D67's cycle
+  predicate itself untouched; invariant 3 untouched (still `needs-review`/`critical`, never
+  gating) — this only decides whether a cycle a keyboard user CAN escape gets reported at
+  all. First "did it escape" design (compare against one stashed stuck-element reference)
+  failed its own existing fixture once the new escapable one was added alongside it — the
+  escape-less modal's handler intercepts Shift+Tab too, bouncing between its two fields,
+  wrongly read as escaped. Fixed by comparing against `state.visited` instead (same signal
+  `probeStepInPage` already uses). Extended the existing fixture with `#modal-escapable`
+  rather than adding a new file; tightened the existing test's assertion, which would have
+  passed even with the escape check silently broken. Confirmed via `git stash` that the
+  tightened assertion fails without the fix. Full suite 361/361. `docs/DECISIONS.md` D97.
 
 ## Prior session (2026-08-21): R0, R1, R2, R6 done
 
