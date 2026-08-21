@@ -136,6 +136,37 @@ that shipped it the first time.
 
 ---
 
+## B6 — the linked demo-PR CI runs may not be visible to a logged-out reader
+
+**Status:** open, unresolved · **Severity:** medium — undercuts a credibility claim the
+README makes about itself · **File:** `README.md` GitHub Action section
+
+The README argues "a CI feature nobody can see running is a claim; a linked PR is
+evidence," and links both demo PRs' Actions runs as that evidence. Checked directly this
+session, unauthenticated (fresh Playwright browser, no cookies, no `gh` auth): the run
+page for PR #1's failing run
+(`github.com/indra-nakka/a11y-ratchet/actions/runs/32399787931`) — both the run-overview
+page and the individual job page — shows the workflow graph and step list, but **no step
+or job summary content at all**. The page's top-right corner reads "Sign in to view
+logs," which is expected to gate raw logs; it appears to also gate the custom Markdown
+job summary the composite action writes.
+
+**Confirmed this isn't a tool-side failure to write the summary**, via authenticated
+`gh run view 32399787931 --log`: the "Write job summary" step (`action.yml`'s own step
+name) is present in the real run log and its `cat ... >> $GITHUB_STEP_SUMMARY` line
+executed. The content exists server-side; it did not render for an unauthenticated
+Playwright session.
+
+**Not yet resolved:** whether this is (a) a genuine, general GitHub Actions behaviour —
+job summaries requiring sign-in on public repos, independent of this project — or (b) a
+setting specific to this repo/account (e.g. a private-by-default Actions visibility
+option) that could be changed. Needs checking from an actual signed-in browser, which
+this agent doesn't have. If (a), the README's "a linked PR is evidence" framing needs a
+caveat: evidence for a signed-in reader, not any reader. If (b), it's a one-time repo
+setting fix.
+
+---
+
 ## Known gaps — not bugs, but named
 
 | Item | Note |

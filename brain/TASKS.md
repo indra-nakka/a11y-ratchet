@@ -51,7 +51,8 @@ the Evidence column. "I think I did this" is not `done`.
 |---|---|---|---|---|---|
 | T21 | Complete the Roadmap section — 8 named items | agent | R6.1 | todo | |
 | T22 | Sweep every remaining `TODO(` placeholder | agent | R6.2 | todo | |
-| T23 | Capture the two screenshots — report + job summary | human | R6.2 | todo | |
+| T23 | Capture the two screenshots — report + job summary | agent/human | R6.2 | doing | HTML-report screenshot done, `docs/img/html-report.png`, real ocw.mit.edu Day 14 data. Job-summary screenshot blocked — see B6 (T36) |
+| T36 | Confirm whether GitHub gates job summaries behind sign-in generally, or just this repo; fix if it's a setting; screenshot signed-in either way | human | R6.2 | todo | `BUGS.md` B6 |
 | T24 | Walk the Definition of Done as a literal checklist | both | R7 | blocked | |
 | T25 | Tag v0.1.0, publish, record the release | both | R7 | blocked on T24 | |
 

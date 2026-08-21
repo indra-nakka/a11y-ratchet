@@ -24,7 +24,15 @@ npx a11y-ratchet scan https://example.com --max-depth 2 --out head.json
 npx a11y-ratchet diff .a11y/baseline.json head.json --html report.html
 ```
 
-<!-- TODO(Day 11): screenshot of the HTML report and the CI job summary -->
+![The self-contained HTML report, generated from the real ocw.mit.edu Day 14 audit run — summary counts, identity-tier distribution, and the findings list below it.](docs/img/html-report.png)
+
+<!-- TODO: CI job-summary screenshot. Attempted against the real demo-PR run
+(https://github.com/indra-nakka/a11y-ratchet/actions/runs/32399787931) and found the run
+page renders no step/job summary content at all for a logged-out viewer — same "Sign in to
+view logs" gate that hides raw logs appears to hide the custom Markdown summary too, even
+though the run log confirms the "Write job summary" step executed and wrote real content
+to $GITHUB_STEP_SUMMARY. Needs a screenshot taken while actually signed in. See
+`brain/BUGS.md` B6. -->
 
 ## Coverage
 
@@ -269,16 +277,46 @@ If you need commercial support and guided manual testing, buy axe DevTools Pro.
 
 ## Roadmap
 
-Focus-visible (2.4.7), tab-order (2.4.3) and off-screen-focus probes · `--repeat`
-instability detection · cross-page consistency
-checks (3.2.3/3.2.4/3.2.6) · report filters · non-Chromium engines · full page-error
-classification (`http-error`, `probe-failed` and `page-crashed` are typed but never
-produced yet — an HTTP error response, a probe crash independent of navigation, and a
-full page crash all currently fall through to the same generic `navigation-failed`/
-`navigation-timeout`/`axe-injection-failed` classification, found while fixing the CSP
-misclassification on Day 13) · a pre-emptive check that warns when an Action workflow's
-own `mode`/`config` input changes in a way that would trip the exit-6 run-config refusal,
-rather than only catching it once the check actually runs.
+Nothing here is promised for a date — feature-frozen since Day 13, this is what's known
+and named for after release, not a commitment.
+
+- Focus-visible (2.4.7), tab-order (2.4.3) and off-screen-focus probes
+- `--repeat N` instability detection
+- Cross-page consistency checks (3.2.3 / 3.2.4 / 3.2.6)
+- Report filters
+- Non-Chromium engines
+- Full page-error classification — `http-error`, `probe-failed` and `page-crashed` are
+  typed but never produced yet; an HTTP error response, a probe crash independent of
+  navigation, and a full page crash all currently fall through to the same generic
+  `navigation-failed` / `navigation-timeout` / `axe-injection-failed` classification
+  (found while fixing the CSP misclassification on Day 13)
+- A pre-emptive check that warns when an Action workflow's own `mode`/`config` input
+  changes in a way that would trip the exit-6 run-config refusal, rather than only
+  catching it once the check actually runs
+- **Settle-contract layout-stability gap.** The mutation-quiet settle window can elapse
+  before a late-loading third-party element (an ad iframe, say) finishes reflowing into
+  its final position, so a check can land while it's still transiently overlapping other
+  elements — measured directly on a real page, not theorised (`docs/DECISIONS.md` D94)
+- **Extract `checks[].data` at normalise time** — `fgColor` / `bgColor` / `contrastRatio`
+  / `messageKey` are currently discarded, so a report can't distinguish "4.2:1, needs
+  4.5:1" from "couldn't resolve a background here, see why"
+- **Faceted-search URL templating** — query-param preservation is correct in general
+  (`docs/02-IDENTITY-AND-DIFF.md §5`) but a search UI's own facet parameters can dominate
+  a page-count budget the way they did in the Day 14 audit
+- **`a11y-ratchet doctor <url>`** — auto-detect generated-id patterns by double-loading a
+  page and diffing ids, more robust than the hand-maintained pattern list in
+  `identity.ignoredIdPatterns`
+- **Within-collision-group tracking** — when several findings share a fingerprint and get
+  ordinal-suffixed, the diff cannot identify *which* member of the tied family changed if
+  the group's size stays the same but one member's other signals shift
+- **Teach the keyboard-trap probe documented escape modifiers.** It presses real `Tab`
+  and nothing else (`docs/DECISIONS.md` D67); a cycle that Escape, Shift+Tab, or another
+  documented key would exit still classifies as a trap. Currently `needs-review`, not
+  gating, in part because of this — closing the gap would need Escape (and ideally the
+  page's own documented shortcuts) tried before a cycle counts
+- **Network-timeout classification, re-verified** — the classification logic is unchanged,
+  already-fixed code, but a real ~30s+ timeout hasn't been re-triggered and re-checked
+  since an earlier day (`docs/DECISIONS.md` D89)
 
 ## Licence
 
