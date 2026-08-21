@@ -1,0 +1,62 @@
+name: CI
+
+# Typecheck, lint, test (including the Playwright-driven browser suite) and
+# build on every push to main and every PR - the thing a tool that gates
+# other people's CI should obviously have on itself, and previously didn't
+# (found by external review, 2026-08-21). `a11y-demo.yml` exercises the
+# Action end to end against a real page; this workflow exercises the tool
+# itself.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Same hand-hashed cache-key approach as action.yml (hashFiles() can't
+      # see the Action's own lockfile when this repo is consumed as
+      # `uses: owner/repo@ref` elsewhere, so action.yml hashes by hand
+      # instead - reused here rather than a second approach, and the key
+      # names match so a warm cache from either workflow serves the other).
+      - name: Compute a cache key from the lockfile
+        id: cache-key
+        run: echo "lockfile-hash=$(sha256sum package-lock.json | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: a11y-ratchet-deps-${{ runner.os }}-${{ steps.cache-key.outputs.lockfile-hash }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Same cache key action.yml uses for the same download - keyed on the
+      # lockfile hash so it invalidates the moment the pinned Playwright
+      # version changes, and never otherwise.
+      - name: Cache the Playwright browser download
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.cache-key.outputs.lockfile-hash }}
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Check (typecheck, lint, test)
+        run: npm run check
+
+      - name: Build
+        run: npm run build

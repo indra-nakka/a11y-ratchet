@@ -1,5 +1,7 @@
 # a11y-ratchet
 
+[![CI](https://github.com/indra-nakka/a11y-ratchet/actions/workflows/ci.yml/badge.svg)](https://github.com/indra-nakka/a11y-ratchet/actions/workflows/ci.yml)
+
 > **Status: pre-release, Day 14 of a 15-day build.** Feature-frozen since Day 13. Scan,
 > diff, baseline lifecycle, the HTML/JSON/terminal reports, `manual`, and the GitHub Action
 > are functional and tested; no stubs remain in `src/`. The section marked `TODO(Day 14–15)`
