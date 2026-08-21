@@ -2720,3 +2720,88 @@ against the un-fixed probe (`expected false to be true`) and passes with the fix
 Full suite: 361/361, unchanged from D96's count — no new golden case needed here, since
 `golden-pairs.test.ts` tests identity/diff behaviour and this change is entirely upstream of
 that, inside probe detection itself.
+
+### D98. External review task 6 — the identity-duplication assessment, not a refactor
+
+Explicitly assessment-only ("do not refactor yet"). The question: can
+`scan/axe.ts` and `scan/probes/focusPath.ts`'s duplicated tree-walking identity
+extraction (D62) be reconciled behind one shared, string-serialised helper injected once
+per page, what does it cost, and what's the blast radius on `golden-pairs.test.ts`.
+
+**Quantified, not re-estimated from D62's "~250 lines."** The overlapping helpers —
+`elementParent`, `implicitLandmarkRole`, `roleForElement`/`hasRealRole`,
+`nearestLandmarkAncestor`, `nearestLandmarkRole`, `nearestPrecedingHeadingText`,
+`elementDomDepth`, `safeAccessibleText`, `testHookValue`, `sameTagSiblingIndex`,
+`buildSemanticPath`, `isIdGenerated`, `nearestStableAncestor`, `capPathDepth`,
+`buildStructuralPath` — span 222 lines in `axe.ts` (238-459) and 182 in `focusPath.ts`
+(491-672). Confirmed via `grep` this is exactly two copies, nowhere else in `src/`.
+
+**The cost is no longer hypothetical — D96 just demonstrated it, live, in this same
+session.** D62 predicted exactly this: "if `axe.ts`'s identity extraction changes again,
+`focusPath.ts`'s copy will not notice." D96 (this session, external review task 4) changed
+`axe.ts`'s `buildSemanticPath` to skip roleless wrapper ancestors instead of using their
+tag name. `focusPath.ts`'s own `buildSemanticPath` (line 592, confirmed by reading it, not
+assumed) still does `chain.unshift(cursor.getAttribute('role') ?? cursor.tagName.toLowerCase())`
+unconditionally — the exact pre-D96 behaviour. **Every probe finding on a nameless
+focusable element (Tier 4, no id/test-hook/accessible name — e.g. an icon-only trapped
+control, exactly the class case 18b already documents as fragile) is right now, as of this
+commit, vulnerable to the identical wrapper-div identity break axe findings no longer
+are.** Recorded separately as `BUGS.md` B10 so it isn't lost — this assessment answers
+"should we unify," not "is this specific gap acceptable to ship."
+
+**Mechanism: yes, and there's already a precedent in this codebase for exactly this
+shape.** `axe.ts` already loads a large external script as a string
+(`AXE_SOURCE = readFileSync(require.resolve('axe-core'), 'utf8')`) and injects it once per
+frame via `page.addScriptTag({ content })` — `injectAxeIntoAllFrames`. The identity helpers
+could be built the same way: a new small source file (e.g.
+`src/scan/identity-inpage.ts`), bundled at build time (`tsup` already produces multiple
+entry points — `index.ts`, `cli/index.ts` — a third, browser-only bundle is the same kind
+of work, not a new category of it) into e.g. `dist/identity-inpage.js`, read via
+`readFileSync` exactly like `AXE_SOURCE`, injected once per frame alongside axe-core, and
+exposed as one `window.__a11yRatchetIdentity` object both `axe.ts` and `focusPath.ts` call
+into instead of maintaining their own copies. This is the only design considered that
+survives the actual constraint both files already document — `page.evaluate(fn)` ships
+only `fn`'s own serialised source, so a plain shared TS import cannot work; the helpers
+have to exist as something already loaded into the page's global scope *before* the
+per-call `evaluate` functions run, the same way `axe` itself already does.
+
+**What it costs, beyond the injection mechanism itself:**
+- A build step for a third bundle output most of this project's tooling doesn't
+  currently need to think about (the CLI and library builds are the only two today).
+- Frame-injection integration: the shared script needs the same per-frame, main-frame-vs-
+  subframe-failure handling `injectAxeIntoAllFrames` already has for axe-core — mechanically
+  solved code to copy the *pattern* of, not a new problem, but real integration work, and
+  ordering relative to axe's own injection needs deciding.
+- The "every evaluate-passed function is fully self-contained" rule — stated verbatim in
+  both files today — stops being true for identity extraction specifically once this
+  lands. That's a real mental-model change for whoever touches this code next, and needs
+  documenting prominently, not left to be rediscovered by someone hitting a
+  `ReferenceError` in the page console.
+- `generatedIdPatterns` (config-derived, resolved at scan time, not build time) still has
+  to be passed as a call argument either way — the shared module doesn't remove that,
+  just relocates where the rest of the logic that receives it lives.
+
+**Blast radius on `golden-pairs.test.ts` specifically: small, and that's the misleading
+part.** That suite only ever exercises `axe.ts`'s identity path — `scan()`/`diff()` over
+axe findings, never probe findings. If the shared module preserves `axe.ts`'s current
+behaviour exactly, all 22 cases (including case 21, added this session) should pass
+unmodified — genuinely low risk, on that one measure. **But that's answering "did this
+break the axe side," not "is the probe side now safe."** There is no golden-pairs
+equivalent for probe-sourced `Finding` identity — `test/scan/probes/focusPath.test.ts` (9
+tests) checks whether a trap/obscured condition gets flagged at all, not whether a probe
+finding's fingerprint/groupKey survives churn the way `02 §9`'s 20 cases prove axe findings
+do. B10's own bug is proof this gap matters: nothing in the current suite would have
+caught it, and nothing in a unification's own test run would either, unless probe-focused
+golden fixtures are built first. Quoting the blast-radius question's own suite as "small"
+without saying this would flatter the answer in the direction that makes unification look
+safer than it is — worth naming plainly rather than leaving implicit.
+
+**Recommendation: not a clean "yes and contained."** The mechanism is sound and has a
+working precedent already in the codebase; the cost is moderate, comparable to the
+identity system's own original build days (Day 4-6), not a small patch. But "contained" is
+specifically wrong for the one thing asked about (`golden-pairs.test.ts`'s blast radius) —
+that suite's silence about the probe side is the risk, not evidence against it. Proposed
+for the Roadmap as two ordered items, not one: (1) probe-focused identity/churn regression
+fixtures — genuinely useful on their own, independent of whether unification ever happens,
+and the prerequisite for verifying it if it does; (2) the shared-injected-helper
+unification itself, gated on (1) existing. Neither attempted under freeze.

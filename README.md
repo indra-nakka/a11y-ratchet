@@ -321,14 +321,19 @@ and named for after release, not a commitment.
 - **Within-collision-group tracking** — when several findings share a fingerprint and get
   ordinal-suffixed, the diff cannot identify *which* member of the tied family changed if
   the group's size stays the same but one member's other signals shift
-- **Teach the keyboard-trap probe documented escape modifiers.** It presses real `Tab`
-  and nothing else (`docs/DECISIONS.md` D67); a cycle that Escape, Shift+Tab, or another
-  documented key would exit still classifies as a trap. Currently `needs-review`, not
-  gating, in part because of this — closing the gap would need Escape (and ideally the
-  page's own documented shortcuts) tried before a cycle counts
 - **Network-timeout classification, re-verified** — the classification logic is unchanged,
   already-fixed code, but a real ~30s+ timeout hasn't been re-triggered and re-checked
   since an earlier day (`docs/DECISIONS.md` D89)
+- **Unify `scan/axe.ts` and `scan/probes/focusPath.ts`'s duplicated identity extraction**
+  (`docs/DECISIONS.md` D62, D98) — two ~200-line copies of the same tree-walking helpers,
+  kept separate on purpose (D62) until both had enough real mileage to know what's worth
+  sharing. That mileage arrived the hard way: a wrapper-div identity fix landed in one copy
+  (D96) and not the other, so probe findings on a nameless focusable element are, right
+  now, vulnerable to the exact bug axe findings no longer are. Assessed, not attempted, as
+  two ordered items: (1) probe-focused identity/churn regression fixtures — nothing today
+  would catch a regression on that side, unification or not — then (2) a shared,
+  string-injected helper module (the same `page.addScriptTag`-once-per-frame pattern
+  axe-core's own injection already uses), gated on (1) existing first
 
 ## Licence
 
