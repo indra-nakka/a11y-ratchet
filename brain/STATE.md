@@ -6,26 +6,37 @@
 
 ## Next action
 
-> **R3 in `RUNBOOK.md`** — human verification in a browser. Everything agent-doable without
-> a browser or a verdict is done (R0, R1, R2, R6). Start with row 1 of
-> `audit/2026-08-20/verification-queue.tsv` (`brain/VERIFY.md` has the full protocol) —
-> `link-name` on `vuejs.org/about/team.html`, 268 instances, the strongest single result.
+> **External review remediation, task 2** — add `.github/workflows/ci.yml` (typecheck,
+> lint, test, build on push/PR; reuse `action.yml`'s Playwright cache-key approach; add the
+> status badge). Task 1 (Quickstart fix) is done, commit `<pending — see below>`. Working
+> the list in order per the reviewer's explicit instruction; stopping and reporting after
+> each numbered task, not running ahead.
 >
-> Also human-blocked, not R3 but doable in the same sitting: the Esc-then-Tab test that
-> decides row 10 (`RUNBOOK.md` R3.5), and `BUGS.md` B6 (check whether GitHub's Actions run
-> page hides job summaries from logged-out viewers generally or just on this repo — needs
-> an actual signed-in look; a screenshot from that same look would close T23/T36).
->
-> Once R3's verdicts land, R4 (precision) → R5 (README §6) are both agent work again.
+> R3 (human verification in a browser) is still the separate, still-open blocker
+> underneath all of this — unaffected by the review remediation work. See below.
 
-## This session (2026-08-21): R0, R1, R2, R6 done
+## External review remediation (2026-08-21, task list from a cloned-repo review)
+
+- **Task 1 — Quickstart fix, done.** `registry.npmjs.org/a11y-ratchet` genuinely 404s
+  (not yet published, deliberately — publishing isn't this agent's call). The README's
+  literal `npx a11y-ratchet scan ...` therefore fails for every real reader. The R1.7
+  Quickstart "verification" (`npm pack` + `npm install <tarball>` + `npx`) didn't catch
+  this: `npx` resolves a locally-installed package before hitting the registry, so it
+  verified a working local install, not the README's actual instructions. Replaced the
+  Quickstart with a clone → `npm install` → `npm run build` → `npm link` path, executed
+  end to end against a fresh clone of the pushed repo (not the working copy) before
+  writing it. `brain/TASKS.md` T9 marked `superseded`, not silently corrected in place —
+  the original claim is wrong and stays visible as wrong, not rewritten as if it were
+  always right.
+
+## Prior session (2026-08-21): R0, R1, R2, R6 done
 
 - **R0** — repo verified against every claim in this file before trusting it: last commit
   at start `ba9f1ca`, tree clean, typecheck/test/build all exit 0, CLI has all 6 command
   groups with no stubs, `docs:coverage` was print-only (the literal cause of B1).
 - **R1**, commit `8178dc0` — `scripts/coverage-report.mjs` now writes `README.md` and
   `docs/03-EVIDENCE.md` in place between `GENERATED` markers (confirmed idempotent); B1-B5
-  fixed; Quickstart re-verified via a real `npm pack` + fresh-install + `npx` smoke test.
+  fixed. Quickstart smoke test **was wrong, corrected 2026-08-21** — see next entry.
 - **R2**, commit `80cfaa6` — `docs/DECISIONS.md` D91-D95 backfilled for Day 14, every
   figure re-derived from the raw run/diff JSON still on disk this session, not from
   memory. Caught and corrected one own claim that didn't hold up under re-check (a settle

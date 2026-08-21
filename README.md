@@ -18,10 +18,20 @@ which ones and [What this cannot catch](#what-this-cannot-catch) for the rest.
 
 ## Quickstart
 
+Not yet published to npm, so `npx a11y-ratchet` doesn't resolve — clone and link
+instead. Verified end to end against a fresh clone of this repo:
+
 ```bash
-npx a11y-ratchet scan https://example.com --max-depth 2 --out .a11y/baseline.json
-npx a11y-ratchet scan https://example.com --max-depth 2 --out head.json
-npx a11y-ratchet diff .a11y/baseline.json head.json --html report.html
+git clone https://github.com/indra-nakka/a11y-ratchet
+cd a11y-ratchet
+npm install
+npm run build
+npm link            # exposes the `a11y-ratchet` command globally
+
+cd /path/to/somewhere-else
+a11y-ratchet scan https://example.com --max-depth 2 --out .a11y/baseline.json
+a11y-ratchet scan https://example.com --max-depth 2 --out head.json
+a11y-ratchet diff .a11y/baseline.json head.json --html report.html
 ```
 
 ![The self-contained HTML report, generated from the real ocw.mit.edu Day 14 audit run — summary counts, identity-tier distribution, and the findings list below it.](docs/img/html-report.png)

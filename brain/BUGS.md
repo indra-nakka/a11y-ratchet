@@ -136,6 +136,31 @@ that shipped it the first time.
 
 ---
 
+## B7 — the Quickstart's first command 404s for every real reader
+
+**Status:** fixed, commit `<pending>` · **Severity:** high — it's the first command in the
+README · **File:** `README.md` Quickstart · **Found by:** external review, 2026-08-21
+
+`registry.npmjs.org/a11y-ratchet` returns 404 — the package has never been published (on
+purpose; publishing is the human's call, not this agent's). The README's literal first
+command, `npx a11y-ratchet scan https://example.com ...`, therefore fails for every reader
+who hasn't already installed something locally.
+
+**Why R1.7's verification missed this:** it ran `npm pack`, installed the tarball into a
+fresh directory (`npm install ./a11y-ratchet-0.1.0.tgz`), then ran `npx a11y-ratchet` from
+that same directory. `npx` checks the local `node_modules/.bin` before it ever considers
+the registry, so that test exercised a working local install and never touched the
+registry path the README actually instructs a reader to take. Verified a different thing
+than the README says — same species as B1-B5 (a check that sounds like it covers the
+claim but doesn't), just not caught by any of the five, because this one is about a
+runtime resolution path, not a stale hand-typed fact.
+
+**Fix:** replaced the Quickstart with a clone → `npm install` → `npm run build` → `npm
+link` path, executed end to end against a fresh clone of the pushed repo (not the local
+working copy — a genuinely independent check) before it was written into the README.
+
+---
+
 ## B6 — the linked demo-PR CI runs may not be visible to a logged-out reader
 
 **Status:** open, unresolved · **Severity:** medium — undercuts a credibility claim the
