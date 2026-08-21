@@ -24,6 +24,7 @@ the Evidence column. "I think I did this" is not `done`.
 | T8 | Fix B5 — bare `ratchet` in `03-EVIDENCE.md:165` | agent | R1.6 | done | commit `8178dc0` |
 | T9 | Re-run the `npx` clean-machine smoke, clear the Quickstart TODO | agent | R1.7 | superseded | commit `8178dc0` verified `npm install <tarball>` then `npx a11y-ratchet` — but `npx` resolves the locally-installed package first, so it never actually hit the registry. `registry.npmjs.org/a11y-ratchet` is a real 404; the README's literal `npx a11y-ratchet` fails for every reader who hasn't installed something first. Found by external review, fixed in T37. |
 | T37 | Fix the Quickstart: registry.npmjs.org/a11y-ratchet 404s, `npx a11y-ratchet` fails for a real reader | agent | external review #1 | done | commit `359e34b` — clone+`npm link` path, executed end to end against a fresh clone of the pushed repo |
+| T38 | Add CI for the tool itself (typecheck/lint/test/build on push+PR), reuse action.yml's cache-key approach, badge | agent | external review #2 | done | commit `c7c34cc` — pushed, watched the real run go green: `gh run watch 32448977537`, 1m51s, `Test Files 39 passed (39)`, `Tests 360 passed (360)` on GitHub's runner, browser tests included |
 | T10 | Backfill D91+ — Day 14 decisions | agent | R2 | done | commit `80cfaa6` — D91-D95, every figure re-derived from the raw run/diff JSON on disk this session |
 
 ## Blocking — human with a browser

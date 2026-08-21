@@ -6,28 +6,40 @@
 
 ## Next action
 
-> **External review remediation, task 2** — add `.github/workflows/ci.yml` (typecheck,
-> lint, test, build on push/PR; reuse `action.yml`'s Playwright cache-key approach; add the
-> status badge). Task 1 (Quickstart fix) is done, commit `359e34b`. Working
-> the list in order per the reviewer's explicit instruction; stopping and reporting after
-> each numbered task, not running ahead.
+> **External review remediation, task 3** — `NotImplementedError` at `src/index.ts:168`/
+> `:192` throws `'Day 11'`/`'Day 12'` as context; replace with something actionable for a
+> library consumer, same error type, same exit-code mapping. Tasks 1-2 done. Stopping and
+> reporting after each numbered task per the reviewer's explicit instruction, not running
+> ahead.
 >
 > R3 (human verification in a browser) is still the separate, still-open blocker
 > underneath all of this — unaffected by the review remediation work. See below.
 
 ## External review remediation (2026-08-21, task list from a cloned-repo review)
 
-- **Task 1 — Quickstart fix, done.** `registry.npmjs.org/a11y-ratchet` genuinely 404s
-  (not yet published, deliberately — publishing isn't this agent's call). The README's
-  literal `npx a11y-ratchet scan ...` therefore fails for every real reader. The R1.7
-  Quickstart "verification" (`npm pack` + `npm install <tarball>` + `npx`) didn't catch
-  this: `npx` resolves a locally-installed package before hitting the registry, so it
-  verified a working local install, not the README's actual instructions. Replaced the
+- **Task 1 — Quickstart fix, done, commit `359e34b`.** `registry.npmjs.org/a11y-ratchet`
+  genuinely 404s (not yet published, deliberately — publishing isn't this agent's call).
+  The README's literal `npx a11y-ratchet scan ...` therefore fails for every real reader.
+  The R1.7 Quickstart "verification" (`npm pack` + `npm install <tarball>` + `npx`) didn't
+  catch this: `npx` resolves a locally-installed package before hitting the registry, so
+  it verified a working local install, not the README's actual instructions. Replaced the
   Quickstart with a clone → `npm install` → `npm run build` → `npm link` path, executed
   end to end against a fresh clone of the pushed repo (not the working copy) before
   writing it. `brain/TASKS.md` T9 marked `superseded`, not silently corrected in place —
   the original claim is wrong and stays visible as wrong, not rewritten as if it were
   always right.
+- **Task 2 — CI on the tool itself, done, commit `c7c34cc`.** Added
+  `.github/workflows/ci.yml`: `npm ci` → cached Chromium install → `npm run check`
+  (typecheck+lint+test) → `npm run build`, on push to `main` and every PR. Reused
+  `action.yml`'s hand-hashed `sha256sum package-lock.json` cache-key approach verbatim,
+  same key names, so the two workflows' caches are interchangeable. **Pushed and watched
+  the real run** (`gh run watch 32448977537`) rather than trusting the YAML alone: green
+  in 1m51s on a cold cache, and the log confirms it was a real run, not a skip — `Test
+  Files 39 passed (39)`, `Tests 360 passed (360)`, on GitHub's own runner, browser tests
+  included (the exact thing the reviewer's sandbox couldn't do). One pre-existing,
+  unrelated annotation carried over from `a11y-demo.yml`'s own runs: a Node.js 20
+  deprecation notice about the Actions runtime itself (not this project's `node-version:
+  '20'` input) — not a failure, not introduced by this change, left alone.
 
 ## Prior session (2026-08-21): R0, R1, R2, R6 done
 
